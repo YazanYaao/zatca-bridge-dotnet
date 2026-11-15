@@ -44,6 +44,12 @@ public class IssueInvoiceHandlerTests
             SaveCallCount++;
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int batchSize = 10, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<OutboxMessage>>(Array.Empty<OutboxMessage>());
+
+        public Task UpdateOutboxStatusAsync(Guid messageId, OutboxStatus status, string? errorMessage = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private static Party CreateSeller() =>

@@ -116,7 +116,10 @@ public class IssueInvoiceHandler
             ublXml,
             invoiceHash,
             DateTimeOffset.UtcNow,
-            OutboxStatus.Pending
+            OutboxStatus.Pending,
+            retryCount: 0,
+            errorMessage: null,
+            invoiceCounterValue: invoice.InvoiceCounterValue
         );
 
         // 9. Persist atomically

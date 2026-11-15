@@ -23,10 +23,13 @@ public enum OutboxMessageType
 /// </summary>
 public enum OutboxStatus
 {
-    Pending,
-    Processing,
-    Completed,
-    Failed
+    Pending = 0,
+    Processing = 1,
+    Cleared = 2,
+    Reported = 3,
+    Completed = 4,
+    Failed = 5,
+    Rejected = 6
 }
 
 /// <summary>
@@ -43,6 +46,7 @@ public sealed record OutboxMessage
     public OutboxStatus Status { get; init; }
     public int RetryCount { get; init; }
     public string? ErrorMessage { get; init; }
+    public long InvoiceCounterValue { get; init; }
 
     public OutboxMessage(
         Guid id,
@@ -53,7 +57,8 @@ public sealed record OutboxMessage
         DateTimeOffset createdAt,
         OutboxStatus status = OutboxStatus.Pending,
         int retryCount = 0,
-        string? errorMessage = null)
+        string? errorMessage = null,
+        long invoiceCounterValue = 0)
     {
         if (id == Guid.Empty)
         {
@@ -84,5 +89,6 @@ public sealed record OutboxMessage
         Status = status;
         RetryCount = retryCount;
         ErrorMessage = errorMessage;
+        InvoiceCounterValue = invoiceCounterValue;
     }
 }
