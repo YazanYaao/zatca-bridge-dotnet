@@ -98,3 +98,77 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
   - [ ] Sequential counter invariant: $ICV_n = ICV_{n-1} + 1$, rejecting non-consecutive or decreasing counters.
   - [ ] Chain linkage invariant: Invoice $n$'s `PreviousInvoiceHash` must equal the computed hash of Invoice $n-1$.
   - [ ] Detects tampering or break in the cryptographic hash chain.
+
+
+---
+
+## 3. Milestone 2: UBL 2.1 XML Generation, Application Orchestration, & Transactional Outbox Persistence
+
+### Task 2.1: UBL 2.1 XML Invoice Serializer (`UblXmlGenerator`)
+- **Goal**: Serialize `Invoice` aggregates into standard ZATCA-compliant UBL 2.1 XML syntax (`<Invoice>`) including required namespaces, profile IDs, embedded document references (ICV, PIH, QR), tax subtotals, legal monetary totals, and line items.
+- **Blocked By**: Milestone 1 (Completed).
+- **Test File**: `tests/ZatcaBridge.UnitTests/Application/UblXmlGeneratorTests.cs`
+- **Application Contracts & Classes**:
+  - `src/ZatcaBridge.Application/Common/Interfaces/IZatcaXmlGenerator.cs`
+  - `src/ZatcaBridge.Application/Xml/UblXmlGenerator.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Generates well-formed XML with standard UBL 2.1 namespaces (`urn:oasis:names:specification:ubl:schema:xsd:Invoice-2`, `cac`, `cbc`, `ext`, `sig`).
+  - [ ] Sets `cbc:ProfileID` to `reporting:1.0` for B2C simplified invoices and `clearance:1.0` for B2B standard invoices.
+  - [ ] Embeds `AdditionalDocumentReference` nodes for `ICV`, `PIH`, and `QR` (Base64 TLV data).
+  - [ ] Renders `cac:AccountingSupplierParty` and `cac:AccountingCustomerParty` (when present) with KSA VAT and postal details.
+  - [ ] Renders `cac:TaxTotal` with `currencyID="SAR"` and individual `cac:TaxSubtotal` elements grouped by `TaxCategory`.
+  - [ ] Renders `cac:LegalMonetaryTotal` with `currencyID="SAR"` formatted to 2 decimal places with `MidpointRounding.AwayFromZero`.
+  - [ ] Renders `cac:InvoiceLine` nodes with line extension amounts, tax subtotals, and item names.
+  - [ ] Handles Arabic UTF-8 text cleanly without byte-order-mark (BOM) corruption.
+
+---
+
+### Task 2.2: Application Layer Contracts & Invoice Issuance Use Case
+- **Goal**: Implement application orchestration for issuing an invoice via CQRS command and handler (`IssueInvoiceCommand` & `IssueInvoiceHandler`).
+- **Blocked By**: Task 2.1
+- **Test File**: `tests/ZatcaBridge.UnitTests/Application/IssueInvoiceHandlerTests.cs`
+- **Application Classes & Contracts**:
+  - `src/ZatcaBridge.Application/Invoices/Commands/IssueInvoiceCommand.cs`
+  - `src/ZatcaBridge.Application/Invoices/Commands/IssueInvoiceResult.cs`
+  - `src/ZatcaBridge.Application/Invoices/Commands/IssueInvoiceHandler.cs`
+  - `src/ZatcaBridge.Application/Common/Interfaces/IHashChainRepository.cs`
+  - `src/ZatcaBridge.Application/Common/Interfaces/IInvoiceOutboxRepository.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Validates command parameters and constructs `Invoice` domain aggregate.
+  - [ ] Retrieves preceding hash chain record from `IHashChainRepository` or initiates genesis hash.
+  - [ ] Computes SHA-256 invoice hash and generates TLV Base64 QR code.
+  - [ ] Produces signed/compliant UBL 2.1 XML string via `IZatcaXmlGenerator`.
+  - [ ] Atomically stages invoice and transactional outbox message in `IInvoiceOutboxRepository`.
+
+---
+
+### Task 2.3: EF Core Persistence & Transactional Outbox
+- **Goal**: Implement database entities, EF Core configurations, and repositories in `ZatcaBridge.Infrastructure`.
+- **Blocked By**: Task 2.2
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/OutboxRepositoryTests.cs`
+- **Infrastructure Classes**:
+  - `src/ZatcaBridge.Infrastructure/Persistence/ZatcaDbContext.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Entities/InvoiceEntity.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Entities/OutboxMessageEntity.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Repositories/InvoiceOutboxRepository.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Repositories/HashChainRepository.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Configures EF Core models with strict monetary precision `decimal(18,2)`.
+  - [ ] Persists invoice aggregate state and outbox messages within a single atomic database transaction.
+  - [ ] Supports outbox message states (`Pending`, `Processing`, `Completed`, `Failed`) and retry counters.
+
+---
+
+### Task 2.4: Outbox Processor & ZATCA Reporting/Clearance State Machine
+- **Goal**: Implement background worker service and state machine for B2B real-time clearance and B2C asynchronous 24-hour reporting.
+- **Blocked By**: Task 2.3
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/OutboxProcessorTests.cs`
+- **Infrastructure Classes**:
+  - `src/ZatcaBridge.Infrastructure/BackgroundServices/OutboxProcessor.cs`
+  - `src/ZatcaBridge.Infrastructure/Services/ZatcaApiReportingClient.cs`
+  - `src/ZatcaBridge.Infrastructure/Services/ZatcaApiClearanceClient.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Polls and locks unprocessed outbox messages to avoid duplicate processing.
+  - [ ] B2B invoices dispatched to clearance endpoint; transitions status to `Cleared` or `Rejected`.
+  - [ ] B2C invoices dispatched to reporting endpoint within 24 hours; transitions status to `Reported`.
+  - [ ] Implements exponential backoff with jitter on transient network errors.
