@@ -68,6 +68,9 @@ public class OutboxProcessor
                         response.ErrorMessage ?? "Rejected by ZATCA",
                         cancellationToken
                     );
+
+                    // Halt batch processing to maintain cryptographic hash chain sequence integrity
+                    break;
                 }
                 else
                 {

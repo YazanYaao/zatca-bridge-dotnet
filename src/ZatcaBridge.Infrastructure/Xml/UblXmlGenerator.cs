@@ -10,7 +10,7 @@ using ZatcaBridge.Domain.Entities;
 using ZatcaBridge.Domain.Enums;
 using ZatcaBridge.Domain.ValueObjects;
 
-namespace ZatcaBridge.Application.Xml;
+namespace ZatcaBridge.Infrastructure.Xml;
 
 /// <summary>
 /// Serializes domain <see cref="Invoice"/> aggregates into ZATCA Phase 2 compliant UBL 2.1 XML documents.

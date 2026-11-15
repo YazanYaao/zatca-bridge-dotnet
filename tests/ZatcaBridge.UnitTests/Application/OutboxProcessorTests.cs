@@ -224,4 +224,37 @@ public class OutboxProcessorTests
         Assert.Equal(1, gateway.ClearanceCallCount); // ONLY the first message was attempted!
         Assert.DoesNotContain(outboxRepo.StatusUpdates, u => u.MessageId == id2);
     }
+
+    [Fact]
+    public async Task ProcessPendingMessagesAsync_PermanentRejection_HaltsSubsequentQueuedMessagesInBatch()
+    {
+        // Arrange: Message 1 (ICV 1) is rejected permanently by ZATCA, Message 2 (ICV 2) must NOT be processed
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+
+        var outboxRepo = new FakeOutboxRepository
+        {
+            Messages =
+            {
+                new OutboxMessage(id1, Guid.NewGuid(), OutboxMessageType.Clearance, "<xml-1/>", "h1", DateTimeOffset.UtcNow, invoiceCounterValue: 1),
+                new OutboxMessage(id2, Guid.NewGuid(), OutboxMessageType.Clearance, "<xml-2/>", "h2", DateTimeOffset.UtcNow, invoiceCounterValue: 2)
+            }
+        };
+
+        var gateway = new FakeGatewayClient
+        {
+            ClearanceResponse = new ZatcaGatewayResponse(IsSuccess: false, IsRejected: true, ErrorMessage: "BR-KSA-01: Invalid VAT ID format")
+        };
+
+        var processor = new OutboxProcessor(outboxRepo, gateway);
+
+        // Act
+        var processed = await processor.ProcessPendingMessagesAsync(10);
+
+        // Assert
+        Assert.Equal(0, processed);
+        Assert.Equal(1, gateway.ClearanceCallCount); // ONLY the first message was attempted
+        Assert.Contains(outboxRepo.StatusUpdates, u => u.MessageId == id1 && u.Status == OutboxStatus.Rejected);
+        Assert.DoesNotContain(outboxRepo.StatusUpdates, u => u.MessageId == id2);
+    }
 }

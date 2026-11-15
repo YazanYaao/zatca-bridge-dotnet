@@ -7,11 +7,11 @@ using Xunit;
 using ZatcaBridge.Application.Common.Interfaces;
 using ZatcaBridge.Application.Invoices.Commands;
 using ZatcaBridge.Application.Models;
-using ZatcaBridge.Application.Xml;
 using ZatcaBridge.Domain.Cryptography;
 using ZatcaBridge.Domain.Entities;
 using ZatcaBridge.Domain.Enums;
 using ZatcaBridge.Domain.ValueObjects;
+using ZatcaBridge.Infrastructure.Xml;
 
 namespace ZatcaBridge.UnitTests.Application;
 
@@ -202,5 +202,73 @@ public class IssueInvoiceHandlerTests
         );
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => handler.HandleAsync(null!));
+    }
+
+    private sealed class ConcurrentInvoiceStore : IHashChainRepository, IInvoiceOutboxRepository
+    {
+        private readonly object _lock = new();
+        private HashChainRecord? _latestRecord;
+        public List<long> SavedIcvs { get; } = new();
+
+        public Task<HashChainRecord?> GetLatestRecordAsync(CancellationToken cancellationToken = default)
+        {
+            lock (_lock)
+            {
+                return Task.FromResult(_latestRecord);
+            }
+        }
+
+        public async Task SaveInvoiceWithOutboxAsync(
+            Invoice invoice,
+            HashChainRecord newChainRecord,
+            OutboxMessage outboxMessage,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(15, cancellationToken);
+            lock (_lock)
+            {
+                _latestRecord = newChainRecord;
+                SavedIcvs.Add(invoice.InvoiceCounterValue);
+            }
+        }
+
+        public Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int batchSize = 10, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<OutboxMessage>>(Array.Empty<OutboxMessage>());
+
+        public Task UpdateOutboxStatusAsync(Guid messageId, OutboxStatus status, string? errorMessage = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task HandleAsync_ConcurrentRequests_AssignsStrictlySequentialIcvsWithoutException()
+    {
+        // Arrange
+        var store = new ConcurrentInvoiceStore();
+        var xmlGenerator = new UblXmlGenerator();
+        var handler = new IssueInvoiceHandler(store, store, xmlGenerator);
+
+        const int requestCount = 5;
+        var commands = Enumerable.Range(1, requestCount).Select(i => new IssueInvoiceCommand(
+            InvoiceNumber: $"INV-CONCURRENT-{i:D3}",
+            IssueDate: new DateOnly(2026, 11, 16),
+            IssueTime: new TimeOnly(12, 0, 0),
+            InvoiceType: InvoiceTypeCode.TaxInvoice,
+            TransactionType: InvoiceTransactionType.B2B,
+            Seller: CreateSeller(),
+            Buyer: CreateBuyer(),
+            LineItems: new[]
+            {
+                new InvoiceLineItemDto($"Item {i}", 1.00m, 100.00m, 0.00m, TaxCategory.Standard)
+            }
+        )).ToList();
+
+        // Act: Run concurrently
+        var tasks = commands.Select(cmd => handler.HandleAsync(cmd));
+        var results = await Task.WhenAll(tasks);
+
+        // Assert: All 5 succeeded with strictly sequential ICVs (1, 2, 3, 4, 5) without duplicates or collisions
+        var orderedIcvs = results.Select(r => r.InvoiceCounterValue).OrderBy(x => x).ToArray();
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5 }, orderedIcvs);
+        Assert.Equal(requestCount, store.SavedIcvs.Count);
     }
 }

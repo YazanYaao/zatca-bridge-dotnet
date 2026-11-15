@@ -6,13 +6,13 @@ using System.Text;
 using System.Xml.Linq;
 using Xunit;
 using ZatcaBridge.Application.Common.Interfaces;
-using ZatcaBridge.Application.Xml;
 using ZatcaBridge.Domain.Cryptography;
 using ZatcaBridge.Domain.Entities;
 using ZatcaBridge.Domain.Enums;
 using ZatcaBridge.Domain.ValueObjects;
+using ZatcaBridge.Infrastructure.Xml;
 
-namespace ZatcaBridge.UnitTests.Application;
+namespace ZatcaBridge.UnitTests.Infrastructure;
 
 public class UblXmlGeneratorTests
 {
