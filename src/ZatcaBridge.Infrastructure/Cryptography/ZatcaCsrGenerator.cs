@@ -49,11 +49,9 @@ public class ZatcaCsrGenerator : IZatcaCsrGenerator
             throw new ArgumentException("CountryCode cannot be null or whitespace.", nameof(request));
         }
 
-        // 1. Generate ECDSA secp256k1 keypair
-        var ecParams = SecNamedCurves.GetByName("secp256k1");
-        var domainParams = new ECDomainParameters(ecParams.Curve, ecParams.G, ecParams.N, ecParams.H);
+        // 1. Generate ECDSA secp256k1 keypair using named curve OID
         var keyGen = new ECKeyPairGenerator();
-        keyGen.Init(new ECKeyGenerationParameters(domainParams, new SecureRandom()));
+        keyGen.Init(new ECKeyGenerationParameters(SecObjectIdentifiers.SecP256k1, new SecureRandom()));
         var keyPair = keyGen.GenerateKeyPair();
 
         // 2. Build standard X.509 Subject DN

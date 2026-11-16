@@ -41,6 +41,7 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         // 3. XML Serializer & Cryptographic Services
         services.AddSingleton<IZatcaXmlGenerator, UblXmlGenerator>();
         services.AddSingleton<IZatcaCsrGenerator, ZatcaCsrGenerator>();
+        services.AddSingleton<IXadesXmlSigner, XadesXmlSigner>();
 
         // 4. ZATCA Gateway Options & Typed HTTP Client
         var gatewayOptions = new ZatcaGatewayOptions();
