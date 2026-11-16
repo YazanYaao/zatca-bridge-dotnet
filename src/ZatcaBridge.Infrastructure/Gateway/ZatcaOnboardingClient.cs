@@ -40,7 +40,10 @@ public class ZatcaOnboardingClient : IZatcaOnboardingClient
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKeyPem);
         ArgumentException.ThrowIfNullOrWhiteSpace(otp);
 
-        var base64Csr = StripPemEnvelope(csrPem, "CERTIFICATE REQUEST");
+        var trimmedCsr = csrPem.Trim();
+        var base64Csr = trimmedCsr.StartsWith("-----BEGIN", StringComparison.OrdinalIgnoreCase)
+            ? Convert.ToBase64String(Encoding.UTF8.GetBytes(trimmedCsr))
+            : trimmedCsr;
         var payload = new { csr = base64Csr };
         var json = JsonSerializer.Serialize(payload);
 

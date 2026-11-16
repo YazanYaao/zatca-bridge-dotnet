@@ -103,7 +103,7 @@ public class ZatcaOnboardingClientTests
             }
         };
 
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal") };
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/") };
         var csidRepo = new InMemoryCsidRepository();
         var client = new ZatcaOnboardingClient(httpClient, csidRepo);
 
@@ -124,7 +124,12 @@ public class ZatcaOnboardingClientTests
         Assert.Equal("V2", handler.LastRequest.Headers.GetValues("Accept-Version").Single());
 
         Assert.NotNull(handler.LastRequestBody);
-        Assert.DoesNotContain("-----BEGIN", handler.LastRequestBody); // Must be stripped of PEM envelope
+        Assert.DoesNotContain("-----BEGIN", handler.LastRequestBody); // Must be Base64-encoded in JSON payload
+        using var requestDoc = JsonDocument.Parse(handler.LastRequestBody);
+        var sentCsrBase64 = requestDoc.RootElement.GetProperty("csr").GetString();
+        Assert.NotNull(sentCsrBase64);
+        var decodedCsrText = Encoding.UTF8.GetString(Convert.FromBase64String(sentCsrBase64));
+        Assert.Contains("-----BEGIN CERTIFICATE REQUEST-----", decodedCsrText);
 
         // Assert: 2. Result verification
         Assert.NotNull(result);
@@ -169,7 +174,7 @@ public class ZatcaOnboardingClientTests
             }
         };
 
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal") };
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/") };
         var csidRepo = new InMemoryCsidRepository();
         await csidRepo.SaveAsync(new CsidCredential(
             id: Guid.NewGuid(),
@@ -228,7 +233,7 @@ public class ZatcaOnboardingClientTests
             }
         };
 
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal") };
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/") };
         var csidRepo = new InMemoryCsidRepository();
         await csidRepo.SaveAsync(new CsidCredential(
             id: Guid.NewGuid(),
@@ -291,7 +296,7 @@ public class ZatcaOnboardingClientTests
             }
         };
 
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal") };
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/") };
         var csidRepo = new InMemoryCsidRepository();
         await csidRepo.SaveAsync(new CsidCredential(
             id: Guid.NewGuid(),

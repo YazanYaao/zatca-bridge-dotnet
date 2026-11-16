@@ -8,10 +8,10 @@ public class ZatcaGatewayOptions
     public const string SectionName = "ZatcaGateway";
 
     /// <summary>
-    /// Base URL for ZATCA API (e.g. Developer Portal, Simulation, or Production).
-    /// Default is the ZATCA Simulation environment.
+    /// Base URL for ZATCA API (e.g. Developer Portal Sandbox, Simulation, or Production).
+    /// Default is the ZATCA Developer Portal Sandbox environment.
     /// </summary>
-    public string BaseUrl { get; set; } = "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/";
+    public string BaseUrl { get; set; } = "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/";
 
     /// <summary>
     /// Relative or absolute path for single invoice B2B clearance.

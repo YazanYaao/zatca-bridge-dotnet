@@ -48,9 +48,15 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         configureGateway?.Invoke(gatewayOptions);
         services.AddSingleton(gatewayOptions);
 
+        var normalizedBaseUrl = gatewayOptions.BaseUrl?.Trim() ?? string.Empty;
+        if (!string.IsNullOrEmpty(normalizedBaseUrl) && !normalizedBaseUrl.EndsWith('/'))
+        {
+            normalizedBaseUrl += "/";
+        }
+
         services.AddHttpClient<IZatcaGatewayClient, ZatcaHttpGatewayClient>(client =>
         {
-            if (Uri.TryCreate(gatewayOptions.BaseUrl, UriKind.Absolute, out var baseUri))
+            if (Uri.TryCreate(normalizedBaseUrl, UriKind.Absolute, out var baseUri))
             {
                 client.BaseAddress = baseUri;
             }
@@ -58,7 +64,7 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
 
         services.AddHttpClient<IZatcaOnboardingClient, ZatcaOnboardingClient>(client =>
         {
-            if (Uri.TryCreate(gatewayOptions.BaseUrl, UriKind.Absolute, out var baseUri))
+            if (Uri.TryCreate(normalizedBaseUrl, UriKind.Absolute, out var baseUri))
             {
                 client.BaseAddress = baseUri;
             }
