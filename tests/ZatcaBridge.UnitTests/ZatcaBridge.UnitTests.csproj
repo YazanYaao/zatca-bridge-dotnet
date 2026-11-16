@@ -24,6 +24,11 @@
     <ProjectReference Include="..\..\src\ZatcaBridge.Domain\ZatcaBridge.Domain.csproj" />
     <ProjectReference Include="..\..\src\ZatcaBridge.Application\ZatcaBridge.Application.csproj" />
     <ProjectReference Include="..\..\src\ZatcaBridge.Infrastructure\ZatcaBridge.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ZatcaBridge.Api\ZatcaBridge.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.2" />
   </ItemGroup>
 
 </Project>
