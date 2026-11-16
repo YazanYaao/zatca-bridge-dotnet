@@ -2,6 +2,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZatcaBridge.Application.Common.Interfaces;
+using ZatcaBridge.Infrastructure.Cryptography;
 using ZatcaBridge.Infrastructure.Gateway;
 using ZatcaBridge.Infrastructure.Persistence;
 using ZatcaBridge.Infrastructure.Persistence.Repositories;
@@ -36,8 +37,9 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         services.AddScoped<IInvoiceOutboxRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
         services.AddScoped<IHashChainRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
 
-        // 3. XML Serializer
+        // 3. XML Serializer & Cryptographic Services
         services.AddSingleton<IZatcaXmlGenerator, UblXmlGenerator>();
+        services.AddSingleton<IZatcaCsrGenerator, ZatcaCsrGenerator>();
 
         // 4. ZATCA Gateway Options & Typed HTTP Client
         var gatewayOptions = new ZatcaGatewayOptions();

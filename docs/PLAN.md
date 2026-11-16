@@ -237,3 +237,76 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
   - [ ] Issues second chained invoice, verifying sequential ICV (2) and PIH matching invoice 1's hash.
   - [ ] Triggers outbox processing and verifies status transitions to `Cleared` or `Reported`.
   - [ ] Confirms full RFC 7807 problem details response on invalid VAT number or malformed line items.
+
+---
+
+## 5. Milestone 4: ZATCA Phase 2 Cryptographic Onboarding, XAdES-BES XML Signing, QR TLV Tags 1–9, & Live Sandbox Integration
+
+### Task 4.1: ECDSA secp256k1 Key Generation, ZATCA CSR Generator, & CSID Domain Model
+- **Goal**: Implement `ZatcaCsrGenerator` using `BouncyCastle.Cryptography` generating an ECDSA `secp256k1` key pair and PKCS#10 Certificate Signing Request (CSR) with ZATCA mandatory Subject DN attributes (CN, OU, O, C) and custom extension OID `1.3.6.1.4.1.311.20.2` (`CertificateTemplateName = PREZATCA-Code-Signing` for Simulation/Sandbox or `ZATCA-Code-Signing` for Production), along with the `CsidCredential` domain model.
+- **Blocked By**: Milestone 3 (Completed).
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/ZatcaCsrGeneratorTests.cs`
+- **Domain & Infrastructure Classes**:
+  - `src/ZatcaBridge.Domain/Cryptography/CsidCredential.cs`
+  - `src/ZatcaBridge.Domain/Cryptography/CsidEnvironment.cs`
+  - `src/ZatcaBridge.Infrastructure/Cryptography/ZatcaCsrGenerator.cs`
+  - `src/ZatcaBridge.Application/Common/Interfaces/IZatcaCsrGenerator.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Generates ECDSA key pair strictly using curve `secp256k1`.
+  - [ ] Exports private key as PKCS#8 PEM string.
+  - [ ] Constructs PKCS#10 CSR with standard Subject DN: `CN=<CommonName>`, `OU=<OrganizationUnit>`, `O=<OrganizationName>`, `C=SA`.
+  - [ ] Embeds custom ASN.1 Microsoft template extension OID `1.3.6.1.4.1.311.20.2` with `PREZATCA-Code-Signing` when targeting Simulation/Sandbox.
+  - [ ] Embeds `ZATCA-Code-Signing` when targeting Production.
+  - [ ] Exports valid PEM formatted CSR string starting with `-----BEGIN CERTIFICATE REQUEST-----`.
+
+---
+
+### Task 4.2: CSID Entity, EF Core Persistence, & Repository (`EfCsidRepository`)
+- **Goal**: Implement `CsidCredentialEntity`, EF Core mapping in `ZatcaDbContext`, and `EfCsidRepository` implementing `ICsidRepository` in Application layer, providing query/update for the currently active CSID.
+- **Blocked By**: Task 4.1
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/CsidRepositoryTests.cs`
+- **Application & Infrastructure Classes**:
+  - `src/ZatcaBridge.Application/Common/Interfaces/ICsidRepository.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Entities/CsidCredentialEntity.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/Repositories/EfCsidRepository.cs`
+  - `src/ZatcaBridge.Infrastructure/Persistence/ZatcaDbContext.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Configures `CsidCredentials` table in EF Core SQLite schema.
+  - [ ] Stores private key PEM, X.509 certificate PEM, CSID secret, request ID, compliance/production status, and active indicator.
+  - [ ] Supports atomically setting an active CSID and deactivating older CSIDs.
+  - [ ] `GetActiveCsidAsync` returns the current active CSID or `null` if none is onboarded.
+
+---
+
+### Task 4.3: XAdES-BES XML Signer & QR Tags 1–9 Generator (`XadesXmlSigner`)
+- **Goal**: Implement two-pass canonical XML signing producing `ext:UBLExtensions` with `ds:Signature`, `ds:SignedInfo`, `ds:SignatureValue`, `ds:KeyInfo` (X.509 cert), and `xades:QualifyingProperties`, and encode Phase 2 QR code with Tags 1 to 9 (Tag 6: Invoice Hash, Tag 7: Digital Signature, Tag 8: Public Key, Tag 9: Certificate Stamp Signature).
+- **Blocked By**: Task 4.2
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/XadesXmlSignerTests.cs`
+- **Application & Infrastructure Classes**:
+  - `src/ZatcaBridge.Application/Common/Interfaces/IXadesXmlSigner.cs`
+  - `src/ZatcaBridge.Infrastructure/Xml/XadesXmlSigner.cs`
+  - `src/ZatcaBridge.Domain/ValueObjects/ZatcaQrCodeData.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Calculates canonical C14N SHA-256 Invoice Hash on pre-signed XML.
+  - [ ] Computes ECDSA signature over the canonical hash using the `secp256k1` private key.
+  - [ ] Extracts public key and CA certificate signature from the CSID X.509 certificate.
+  - [ ] Produces Phase 2 QR code containing all Tags 1 through 9.
+  - [ ] Injects `ds:Signature` and XAdES-BES `SignedProperties` into `ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent`.
+  - [ ] Embeds completed Tags 1–9 QR code in `AdditionalDocumentReference` with `ID = QR`.
+
+---
+
+### Task 4.4: Dual-Mode Issuance Integration & Onboarding API Endpoints
+- **Goal**: Wire `ICsidProvider` into `IssueInvoiceHandler` for automatic dual-mode operation (unsigned mode if no CSID vs signed XAdES-BES mode when CSID active), update `ZatcaHttpGatewayClient` for CSID Basic Auth (`BinarySecurityToken:Secret`), and expose onboarding endpoints (`POST /api/v1/onboarding/csr`, `POST /api/v1/onboarding/compliance-csid`, `POST /api/v1/onboarding/production-csid`).
+- **Blocked By**: Task 4.3
+- **Test File**: `tests/ZatcaBridge.UnitTests/Application/DualModeInvoiceIssuanceTests.cs` and `tests/ZatcaBridge.UnitTests/Api/OnboardingEndpointsTests.cs`
+- **Application, Infrastructure, & Api Classes**:
+  - `src/ZatcaBridge.Application/Invoices/Commands/IssueInvoiceHandler.cs`
+  - `src/ZatcaBridge.Infrastructure/Gateway/ZatcaHttpGatewayClient.cs`
+  - `src/ZatcaBridge.Api/Endpoints/OnboardingEndpoints.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] `IssueInvoiceHandler` seamlessly generates unsigned UBL (Tags 1–5 QR) if no CSID is active (preserving 100% of existing tests).
+  - [ ] `IssueInvoiceHandler` automatically switches to XAdES-BES signed UBL (Tags 1–9 QR) when an active CSID is present.
+  - [ ] `POST /api/v1/onboarding/csr` generates a new private key and CSR for a given tax entity.
+  - [ ] `POST /api/v1/onboarding/compliance-csid` sends CSR and OTP to ZATCA compliance CSID endpoint and saves the returned certificate/secret.
+  - [ ] `ZatcaHttpGatewayClient` automatically uses CSID Basic Authentication for all live sandbox clearance/reporting requests.
