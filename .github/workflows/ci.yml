@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build, Test & E2E Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run unit & integration tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Run Newman E2E Smoke Tests
+        if: hashFiles('tests/postman/ZatcaBridge.postman_collection.json') != ''
+        run: |
+          npm install -g newman
+
+          # Start API in background on port 5000 and ensure clean exit via trap
+          dotnet run --project src/ZatcaBridge.Api --no-build --configuration Release --urls "http://localhost:5000" &
+          API_PID=$!
+          trap 'echo "Stopping API server (PID: $API_PID)..."; kill $API_PID 2>/dev/null || true' EXIT
+
+          # Readiness polling loop against /api/v1/invoices/chain/latest
+          echo "Waiting for API server to become ready..."
+          READY=0
+          for i in $(seq 1 30); do
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/v1/invoices/chain/latest || true)
+            if [ "$STATUS_CODE" = "200" ] || [ "$STATUS_CODE" = "404" ]; then
+              echo "API server is ready (received HTTP $STATUS_CODE after $i attempt(s))."
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "Error: API server failed to become ready within timeout."
+            exit 1
+          fi
+
+          newman run tests/postman/ZatcaBridge.postman_collection.json --env-var "baseUrl=http://localhost:5000"
