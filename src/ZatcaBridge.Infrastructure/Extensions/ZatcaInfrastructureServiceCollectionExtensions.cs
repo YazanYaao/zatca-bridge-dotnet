@@ -36,6 +36,7 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         services.AddScoped<EfInvoiceOutboxRepository>();
         services.AddScoped<IInvoiceOutboxRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
         services.AddScoped<IHashChainRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
+        services.AddScoped<ICsidRepository, EfCsidRepository>();
 
         // 3. XML Serializer & Cryptographic Services
         services.AddSingleton<IZatcaXmlGenerator, UblXmlGenerator>();

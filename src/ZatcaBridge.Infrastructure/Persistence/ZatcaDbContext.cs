@@ -8,6 +8,7 @@ public class ZatcaDbContext : DbContext
     public DbSet<InvoiceEntity> Invoices => Set<InvoiceEntity>();
     public DbSet<HashChainEntity> HashChainRecords => Set<HashChainEntity>();
     public DbSet<OutboxMessageEntity> OutboxMessages => Set<OutboxMessageEntity>();
+    public DbSet<CsidCredentialEntity> CsidCredentials => Set<CsidCredentialEntity>();
 
     public ZatcaDbContext(DbContextOptions<ZatcaDbContext> options) : base(options)
     {
@@ -61,6 +62,21 @@ public class ZatcaDbContext : DbContext
             builder.Property(e => e.InvoiceHash).HasMaxLength(256).IsRequired();
             builder.Property(e => e.PayloadXml).IsRequired();
             builder.Property(e => e.ErrorMessage).HasMaxLength(4000);
+        });
+
+        // CsidCredential entity configuration
+        modelBuilder.Entity<CsidCredentialEntity>(builder =>
+        {
+            builder.ToTable("CsidCredentials");
+            builder.HasKey(e => e.Id);
+            builder.HasIndex(e => e.IsActive);
+
+            builder.Property(e => e.PrivateKeyPem).IsRequired();
+            builder.Property(e => e.Secret).HasMaxLength(512);
+            builder.Property(e => e.RequestId).HasMaxLength(128);
+            builder.Property(e => e.Environment).IsRequired();
+            builder.Property(e => e.IsActive).IsRequired();
+            builder.Property(e => e.CreatedAt).HasConversion<string>().IsRequired();
         });
     }
 }
