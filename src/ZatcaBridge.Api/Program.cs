@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +13,14 @@ using ZatcaBridge.Infrastructure.Gateway;
 using ZatcaBridge.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Minimal API JSON serialization options
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
 
 // RFC 7807 Problem Details & Exception Handler
 builder.Services.AddProblemDetails();

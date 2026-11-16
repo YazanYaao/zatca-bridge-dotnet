@@ -277,4 +277,81 @@ public class InvoiceEndpointsTests : IClassFixture<WebApplicationFactory<Program
         Assert.NotNull(body);
         Assert.True(body.ProcessedCount >= 0);
     }
+
+    [Fact]
+    public async Task PostInvoice_RawJsonWithStringEnums_SuccessfullyDeserializesAndReturns201Created()
+    {
+        // Arrange: Raw JSON payload with string enums (TaxInvoice, B2B, Standard)
+        const string json = """
+        {
+            "invoiceNumber": "INV-STR-ENUM-01",
+            "issueDate": "2026-11-16",
+            "issueTime": "12:00:00",
+            "invoiceType": "TaxInvoice",
+            "transactionType": "B2B",
+            "seller": {
+                "name": "Acme Saudi Co",
+                "vatRegistrationNumber": "310123456700003",
+                "street": "Olaya St",
+                "buildingNumber": "1234",
+                "postalZone": "12211",
+                "city": "Riyadh",
+                "district": "Olaya",
+                "countryCode": "SA"
+            },
+            "buyer": {
+                "name": "Retail Partner LLC",
+                "vatRegistrationNumber": "320987654300003",
+                "street": "King Fahd Rd",
+                "buildingNumber": "5678",
+                "postalZone": "12334",
+                "city": "Riyadh",
+                "district": "Nakheel",
+                "countryCode": "SA"
+            },
+            "lineItems": [
+                {
+                    "name": "Consulting Service",
+                    "quantity": 1.00,
+                    "unitPrice": 500.00,
+                    "discountAmount": 0.00,
+                    "taxCategory": {
+                        "code": "Standard",
+                        "rate": 0.15
+                    }
+                }
+            ]
+        }
+        """;
+
+        using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await _client.PostAsync("/api/v1/invoices", content);
+
+        // Assert: 201 Created (deserialized string enums successfully)
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<IssueInvoiceResult>();
+        Assert.NotNull(result);
+        Assert.Equal("INV-STR-ENUM-01", result.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task PostInvoice_MalformedJsonSyntax_Returns400BadRequestWithProblemDetails()
+    {
+        // Arrange: Syntactically invalid JSON payload
+        const string malformedJson = "{ \"invoiceNumber\": \"INV-MALFORMED\", \"invoiceType\": ";
+        using var content = new StringContent(malformedJson, System.Text.Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await _client.PostAsync("/api/v1/invoices", content);
+
+        // Assert: RFC 7807 400 Bad Request (NOT 500)
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        var problemDetails = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problemDetails);
+        Assert.Equal(400, problemDetails.Status);
+    }
 }

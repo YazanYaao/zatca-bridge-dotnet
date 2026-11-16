@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using ZatcaBridge.Application.Common.Interfaces;
 using ZatcaBridge.Application.Invoices.Commands;
@@ -29,6 +30,35 @@ public sealed record PartyDto(
 );
 
 /// <summary>
+/// DTO representing a tax category for API line items, decoupling domain Value Objects from API wire contracts.
+/// </summary>
+public sealed record TaxCategoryDto(
+    TaxCategoryCode Code,
+    decimal? Rate = null,
+    string? ExemptionReasonCode = null,
+    string? ExemptionReason = null
+)
+{
+    public TaxCategory ToDomain()
+    {
+        return Code switch
+        {
+            TaxCategoryCode.Standard => Rate.HasValue && Rate.Value != 0.15m ? new TaxCategory(Code, Rate.Value) : TaxCategory.Standard,
+            TaxCategoryCode.ZeroRated => TaxCategory.ZeroRated,
+            TaxCategoryCode.OutOfScope => TaxCategory.OutOfScope,
+            TaxCategoryCode.Exempt => TaxCategory.Exempt(
+                ExemptionReasonCode ?? "VATEX-SA-OOS",
+                ExemptionReason ?? "Exempt"
+            ),
+            _ => new TaxCategory(Code, Rate ?? 0.00m, ExemptionReasonCode, ExemptionReason)
+        };
+    }
+
+    public static implicit operator TaxCategoryDto(TaxCategory tc) =>
+        new(tc.Code, tc.Rate, tc.ExemptionReasonCode, tc.ExemptionReason);
+}
+
+/// <summary>
 /// Invoice issuance request DTO for POST /api/v1/invoices.
 /// </summary>
 public sealed record IssueInvoiceRequest(
@@ -50,6 +80,23 @@ public sealed record IssueInvoiceRequest(
 /// Response DTO for manual outbox processing.
 /// </summary>
 public sealed record ProcessOutboxResponse(int ProcessedCount);
+
+/// <summary>
+/// Clean, flattened response DTO representing the latest hash chain record.
+/// </summary>
+public sealed record LatestChainRecordResponse(
+    long InvoiceCounterValue,
+    string PreviousInvoiceHash,
+    string InvoiceHash
+)
+{
+    /// <summary>
+    /// Backwards compatibility property for nested ICV value object consumers.
+    /// </summary>
+    public IcvValueDto Icv => new(InvoiceCounterValue);
+}
+
+public sealed record IcvValueDto(long Value);
 
 /// <summary>
 /// Minimal API endpoint mappings for invoices and outbox dispatching.
@@ -117,10 +164,21 @@ public static class InvoiceEndpoints
             var record = await hashChainRepository.GetLatestRecordAsync(cancellationToken);
             if (record is null)
             {
-                return Results.NotFound(new { message = "No invoice hash chain records found." });
+                return Results.NotFound(new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Not Found",
+                    Detail = "No invoice hash chain records found."
+                });
             }
 
-            return Results.Ok(record);
+            var response = new LatestChainRecordResponse(
+                record.Icv.Value,
+                record.PreviousHash.Value,
+                record.InvoiceHash
+            );
+
+            return Results.Ok(response);
         });
 
         group.MapPost("/outbox/process", async (

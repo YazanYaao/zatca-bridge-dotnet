@@ -22,6 +22,8 @@ public class ProblemDetailsExceptionHandler : IExceptionHandler
     {
         var (statusCode, title) = exception switch
         {
+            BadHttpRequestException => (StatusCodes.Status400BadRequest, "Malformed Request Payload"),
+            JsonException => (StatusCodes.Status400BadRequest, "JSON Deserialization Error"),
             ArgumentNullException or ArgumentException => (StatusCodes.Status400BadRequest, "Invalid Argument"),
             InvalidOperationException => (StatusCodes.Status400BadRequest, "Domain Invariant Violation"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
