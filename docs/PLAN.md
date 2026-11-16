@@ -297,16 +297,20 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
 ---
 
 ### Task 4.4: Dual-Mode Issuance Integration & Onboarding API Endpoints
-- **Goal**: Wire `ICsidProvider` into `IssueInvoiceHandler` for automatic dual-mode operation (unsigned mode if no CSID vs signed XAdES-BES mode when CSID active), update `ZatcaHttpGatewayClient` for CSID Basic Auth (`BinarySecurityToken:Secret`), and expose onboarding endpoints (`POST /api/v1/onboarding/csr`, `POST /api/v1/onboarding/compliance-csid`, `POST /api/v1/onboarding/production-csid`).
+- **Goal**: Wire `ICsidRepository` into `IssueInvoiceHandler` for automatic dual-mode operation (unsigned mode if no CSID vs signed XAdES-BES mode when CSID active), update `ZatcaHttpGatewayClient` for CSID Basic Auth (`BinarySecurityToken:Secret`), and expose onboarding endpoints (`POST /api/v1/onboarding/compliance-csid`, `POST /api/v1/onboarding/compliance-check`, `POST /api/v1/onboarding/production-csid`, `GET /api/v1/onboarding/status`).
 - **Blocked By**: Task 4.3
-- **Test File**: `tests/ZatcaBridge.UnitTests/Application/DualModeInvoiceIssuanceTests.cs` and `tests/ZatcaBridge.UnitTests/Api/OnboardingEndpointsTests.cs`
+- **Test File**: `tests/ZatcaBridge.UnitTests/Application/DualModeIssuanceTests.cs`, `tests/ZatcaBridge.UnitTests/Infrastructure/ZatcaOnboardingClientTests.cs`, and `tests/ZatcaBridge.UnitTests/Api/OnboardingEndpointsTests.cs`
 - **Application, Infrastructure, & Api Classes**:
+  - `src/ZatcaBridge.Application/Common/Interfaces/IZatcaOnboardingClient.cs`
   - `src/ZatcaBridge.Application/Invoices/Commands/IssueInvoiceHandler.cs`
   - `src/ZatcaBridge.Infrastructure/Gateway/ZatcaHttpGatewayClient.cs`
+  - `src/ZatcaBridge.Infrastructure/Gateway/ZatcaOnboardingClient.cs`
   - `src/ZatcaBridge.Api/Endpoints/OnboardingEndpoints.cs`
 - **Acceptance Criteria & Test Cases**:
-  - [ ] `IssueInvoiceHandler` seamlessly generates unsigned UBL (Tags 1–5 QR) if no CSID is active (preserving 100% of existing tests).
-  - [ ] `IssueInvoiceHandler` automatically switches to XAdES-BES signed UBL (Tags 1–9 QR) when an active CSID is present.
-  - [ ] `POST /api/v1/onboarding/csr` generates a new private key and CSR for a given tax entity.
-  - [ ] `POST /api/v1/onboarding/compliance-csid` sends CSR and OTP to ZATCA compliance CSID endpoint and saves the returned certificate/secret.
-  - [ ] `ZatcaHttpGatewayClient` automatically uses CSID Basic Authentication for all live sandbox clearance/reporting requests.
+  - [x] `IssueInvoiceHandler` seamlessly generates unsigned UBL (Tags 1–5 QR) if no CSID is active (preserving 100% of existing tests).
+  - [x] `IssueInvoiceHandler` automatically switches to XAdES-BES signed UBL (Tags 1–9 QR) when an active CSID is present.
+  - [x] `POST /api/v1/onboarding/compliance-csid` generates a new private key and CSR for a given tax entity, sends CSR and OTP to ZATCA compliance CSID endpoint, and saves the returned certificate/secret.
+  - [x] `POST /api/v1/onboarding/compliance-check` signs and validates a test invoice against `/compliance/invoices`.
+  - [x] `POST /api/v1/onboarding/production-csid` promotes compliance CSID to production CSID via `/production/csids`.
+  - [x] `GET /api/v1/onboarding/status` returns non-sensitive metadata for the active CSID.
+  - [x] `ZatcaHttpGatewayClient` automatically uses CSID Basic Authentication for all live sandbox clearance/reporting requests.

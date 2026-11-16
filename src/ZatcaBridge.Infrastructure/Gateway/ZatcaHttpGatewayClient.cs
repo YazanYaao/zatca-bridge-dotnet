@@ -20,6 +20,7 @@ public class ZatcaHttpGatewayClient : IZatcaGatewayClient
 {
     private readonly HttpClient _httpClient;
     private readonly ZatcaGatewayOptions _options;
+    private readonly ICsidRepository? _csidRepository;
 
     private sealed record ZatcaRequestDto(
         [property: JsonPropertyName("invoiceHash")] string InvoiceHash,
@@ -27,10 +28,11 @@ public class ZatcaHttpGatewayClient : IZatcaGatewayClient
         [property: JsonPropertyName("invoice")] string Invoice
     );
 
-    public ZatcaHttpGatewayClient(HttpClient httpClient, ZatcaGatewayOptions? options = null)
+    public ZatcaHttpGatewayClient(HttpClient httpClient, ZatcaGatewayOptions? options = null, ICsidRepository? csidRepository = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? new ZatcaGatewayOptions();
+        _csidRepository = csidRepository;
     }
 
     /// <inheritdoc />
@@ -73,7 +75,17 @@ public class ZatcaHttpGatewayClient : IZatcaGatewayClient
         request.Headers.TryAddWithoutValidation("Accept-Version", _options.AcceptVersion);
         request.Headers.TryAddWithoutValidation("Accept-Language", _options.AcceptLanguage);
 
-        if (!string.IsNullOrWhiteSpace(_options.AuthToken))
+        var activeCsid = _csidRepository != null
+            ? await _csidRepository.GetActiveAsync(cancellationToken)
+            : null;
+
+        if (activeCsid != null && !string.IsNullOrWhiteSpace(activeCsid.CertificatePem) && !string.IsNullOrWhiteSpace(activeCsid.Secret))
+        {
+            var token = StripPemEnvelope(activeCsid.CertificatePem);
+            var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{token}:{activeCsid.Secret}"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", creds);
+        }
+        else if (!string.IsNullOrWhiteSpace(_options.AuthToken))
         {
             if (_options.AuthToken.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
             {
@@ -296,5 +308,15 @@ public class ZatcaHttpGatewayClient : IZatcaGatewayClient
             ValidationErrors: errorList.ToArray(),
             IsTransient: false
         );
+    }
+
+    private static string StripPemEnvelope(string pem)
+    {
+        return pem
+            .Replace("-----BEGIN CERTIFICATE-----", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("-----END CERTIFICATE-----", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("\r", "")
+            .Replace("\n", "")
+            .Trim();
     }
 }

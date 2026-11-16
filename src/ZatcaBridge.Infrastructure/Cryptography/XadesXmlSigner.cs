@@ -208,8 +208,13 @@ public class XadesXmlSigner : IXadesXmlSigner
             )
         );
 
-        // Inject ublExtensions as first child of <Invoice>
+        // Inject ublExtensions as first child of <Invoice> and ensure standard namespace prefixes
         xDoc.Root!.AddFirst(ublExtensions);
+        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "ds", NsDs.NamespaceName);
+        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "xades", NsXades.NamespaceName);
+        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sig", NsSig.NamespaceName);
+        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sac", NsSac.NamespaceName);
+        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sbc", NsSbc.NamespaceName);
 
         // Add QR Document Reference
         var pihRef = xDoc.Descendants(NsCac + "AdditionalDocumentReference")

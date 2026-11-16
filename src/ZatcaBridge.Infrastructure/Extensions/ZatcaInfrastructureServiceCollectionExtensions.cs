@@ -56,6 +56,14 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
             }
         });
 
+        services.AddHttpClient<IZatcaOnboardingClient, ZatcaOnboardingClient>(client =>
+        {
+            if (Uri.TryCreate(gatewayOptions.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+        });
+
         return services;
     }
 }

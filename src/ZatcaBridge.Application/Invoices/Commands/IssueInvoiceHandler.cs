@@ -23,17 +23,23 @@ public class IssueInvoiceHandler
     private readonly IInvoiceOutboxRepository _invoiceOutboxRepository;
     private readonly IZatcaXmlGenerator _xmlGenerator;
     private readonly SemaphoreSlim _issuanceLock;
+    private readonly ICsidRepository? _csidRepository;
+    private readonly IXadesXmlSigner? _xadesXmlSigner;
 
     public IssueInvoiceHandler(
         IHashChainRepository hashChainRepository,
         IInvoiceOutboxRepository invoiceOutboxRepository,
         IZatcaXmlGenerator xmlGenerator,
-        SemaphoreSlim? issuanceLock = null)
+        SemaphoreSlim? issuanceLock = null,
+        ICsidRepository? csidRepository = null,
+        IXadesXmlSigner? xadesXmlSigner = null)
     {
         _hashChainRepository = hashChainRepository ?? throw new ArgumentNullException(nameof(hashChainRepository));
         _invoiceOutboxRepository = invoiceOutboxRepository ?? throw new ArgumentNullException(nameof(invoiceOutboxRepository));
         _xmlGenerator = xmlGenerator ?? throw new ArgumentNullException(nameof(xmlGenerator));
         _issuanceLock = issuanceLock ?? DefaultLock;
+        _csidRepository = csidRepository;
+        _xadesXmlSigner = xadesXmlSigner;
     }
 
     public async Task<IssueInvoiceResult> HandleAsync(IssueInvoiceCommand command, CancellationToken cancellationToken = default)
@@ -94,16 +100,32 @@ public class IssueInvoiceHandler
                 previousInvoiceHash: pih
             );
 
-            // 4. Encode ZATCA TLV Base64 QR code
-            var qrData = ZatcaQrCodeData.FromInvoice(invoice);
-            var qrCodeBase64 = TlvEncoder.EncodeToBase64(qrData);
+            // 4. Determine Dual-Mode (Signed XAdES-BES vs Unsigned Fallback)
+            string ublXml;
+            string qrCodeBase64;
+            string invoiceHash;
 
-            // 5. Generate standard UBL 2.1 XML
-            var ublXml = _xmlGenerator.GenerateXml(invoice, qrCodeBase64);
+            var activeCsid = _csidRepository != null
+                ? await _csidRepository.GetActiveAsync(cancellationToken)
+                : null;
 
-            // 6. Compute canonical SHA-256 Invoice Hash
-            var hashResult = InvoiceHashCalculator.ComputeHash(ublXml);
-            var invoiceHash = hashResult.Base64Hash;
+            if (activeCsid != null && _xadesXmlSigner != null)
+            {
+                // Signed Mode: XAdES-BES enveloped signature, Phase 2 QR (Tags 1-9), canonical SHA-256 hash
+                var signingResult = _xadesXmlSigner.SignInvoice(invoice, activeCsid);
+                ublXml = signingResult.SignedXml;
+                qrCodeBase64 = signingResult.QrCodeBase64;
+                invoiceHash = signingResult.InvoiceHashBase64;
+            }
+            else
+            {
+                // Unsigned Fallback Mode: Standard UBL 2.1 XML and Phase 1 QR (Tags 1-5)
+                var qrData = ZatcaQrCodeData.FromInvoice(invoice);
+                qrCodeBase64 = TlvEncoder.EncodeToBase64(qrData);
+                ublXml = _xmlGenerator.GenerateXml(invoice, qrCodeBase64);
+                var hashResult = InvoiceHashCalculator.ComputeHash(ublXml);
+                invoiceHash = hashResult.Base64Hash;
+            }
 
             // 7. Formulate new HashChainRecord
             var newChainRecord = latestRecord is null

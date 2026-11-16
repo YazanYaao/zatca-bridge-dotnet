@@ -49,6 +49,7 @@ using (var scope = app.Services.CreateScope())
 
 // Map Minimal API Endpoints
 app.MapInvoiceEndpoints();
+app.MapOnboardingEndpoints();
 
 app.Run();
 
