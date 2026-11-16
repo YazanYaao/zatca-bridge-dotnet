@@ -252,29 +252,29 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
   - `src/ZatcaBridge.Infrastructure/Cryptography/ZatcaCsrGenerator.cs`
   - `src/ZatcaBridge.Application/Common/Interfaces/IZatcaCsrGenerator.cs`
 - **Acceptance Criteria & Test Cases**:
-  - [ ] Generates ECDSA key pair strictly using curve `secp256k1`.
-  - [ ] Exports private key as PKCS#8 PEM string.
-  - [ ] Constructs PKCS#10 CSR with standard Subject DN: `CN=<CommonName>`, `OU=<OrganizationUnit>`, `O=<OrganizationName>`, `C=SA`.
-  - [ ] Embeds custom ASN.1 Microsoft template extension OID `1.3.6.1.4.1.311.20.2` with `PREZATCA-Code-Signing` when targeting Simulation/Sandbox.
-  - [ ] Embeds `ZATCA-Code-Signing` when targeting Production.
-  - [ ] Exports valid PEM formatted CSR string starting with `-----BEGIN CERTIFICATE REQUEST-----`.
+  - [x] Generates ECDSA key pair strictly using curve `secp256k1`.
+  - [x] Exports private key as PKCS#8 PEM string.
+  - [x] Constructs PKCS#10 CSR with standard Subject DN: `CN=<CommonName>`, `OU=<OrganizationUnit>`, `O=<OrganizationName>`, `C=SA`.
+  - [x] Embeds custom ASN.1 Microsoft template extension OID `1.3.6.1.4.1.311.20.2` with `PREZATCA-Code-Signing` when targeting Simulation/Sandbox.
+  - [x] Embeds `ZATCA-Code-Signing` when targeting Production.
+  - [x] Exports valid PEM formatted CSR string starting with `-----BEGIN CERTIFICATE REQUEST-----`.
 
 ---
 
 ### Task 4.2: CSID Entity, EF Core Persistence, & Repository (`EfCsidRepository`)
 - **Goal**: Implement `CsidCredentialEntity`, EF Core mapping in `ZatcaDbContext`, and `EfCsidRepository` implementing `ICsidRepository` in Application layer, providing query/update for the currently active CSID.
 - **Blocked By**: Task 4.1
-- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/CsidRepositoryTests.cs`
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/EfCsidRepositoryTests.cs`
 - **Application & Infrastructure Classes**:
   - `src/ZatcaBridge.Application/Common/Interfaces/ICsidRepository.cs`
   - `src/ZatcaBridge.Infrastructure/Persistence/Entities/CsidCredentialEntity.cs`
   - `src/ZatcaBridge.Infrastructure/Persistence/Repositories/EfCsidRepository.cs`
   - `src/ZatcaBridge.Infrastructure/Persistence/ZatcaDbContext.cs`
 - **Acceptance Criteria & Test Cases**:
-  - [ ] Configures `CsidCredentials` table in EF Core SQLite schema.
-  - [ ] Stores private key PEM, X.509 certificate PEM, CSID secret, request ID, compliance/production status, and active indicator.
-  - [ ] Supports atomically setting an active CSID and deactivating older CSIDs.
-  - [ ] `GetActiveCsidAsync` returns the current active CSID or `null` if none is onboarded.
+  - [x] Configures `CsidCredentials` table in EF Core SQLite schema.
+  - [x] Stores private key PEM, X.509 certificate PEM, CSID secret, request ID, compliance/production status, and active indicator.
+  - [x] Supports atomically setting an active CSID and deactivating older CSIDs.
+  - [x] `GetActiveCsidAsync` returns the current active CSID or `null` if none is onboarded.
 
 ---
 
@@ -284,15 +284,15 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
 - **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/XadesXmlSignerTests.cs`
 - **Application & Infrastructure Classes**:
   - `src/ZatcaBridge.Application/Common/Interfaces/IXadesXmlSigner.cs`
-  - `src/ZatcaBridge.Infrastructure/Xml/XadesXmlSigner.cs`
+  - `src/ZatcaBridge.Infrastructure/Cryptography/XadesXmlSigner.cs`
   - `src/ZatcaBridge.Domain/ValueObjects/ZatcaQrCodeData.cs`
 - **Acceptance Criteria & Test Cases**:
-  - [ ] Calculates canonical C14N SHA-256 Invoice Hash on pre-signed XML.
-  - [ ] Computes ECDSA signature over the canonical hash using the `secp256k1` private key.
-  - [ ] Extracts public key and CA certificate signature from the CSID X.509 certificate.
-  - [ ] Produces Phase 2 QR code containing all Tags 1 through 9.
-  - [ ] Injects `ds:Signature` and XAdES-BES `SignedProperties` into `ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent`.
-  - [ ] Embeds completed Tags 1–9 QR code in `AdditionalDocumentReference` with `ID = QR`.
+  - [x] Calculates canonical C14N SHA-256 Invoice Hash on pre-signed XML.
+  - [x] Computes ECDSA signature over the canonical hash using the `secp256k1` private key.
+  - [x] Extracts public key and CA certificate signature from the CSID X.509 certificate.
+  - [x] Produces Phase 2 QR code containing all Tags 1 through 9.
+  - [x] Injects `ds:Signature` and XAdES-BES `SignedProperties` into `ext:UBLExtensions/ext:UBLExtension/ext:ExtensionContent`.
+  - [x] Embeds completed Tags 1–9 QR code in `AdditionalDocumentReference` with `ID = QR`.
 
 ---
 
