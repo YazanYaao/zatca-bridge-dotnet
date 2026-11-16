@@ -1,0 +1,1060 @@
+{
+  "info": {
+    "_postman_id": "4f81c27e-fd02-464f-ba5b-b2c7b51dae9b",
+    "name": "ZatcaBridge API Test Suite",
+    "description": "Production-grade stateful cryptographic test suite for the ZatcaBridge API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "34426328"
+  },
+  "item": [
+    {
+      "name": "01 - Chaining & Lifecycle (Stateful Sequential Invoices)",
+      "item": [
+        {
+          "name": "POST - Genesis B2B TaxInvoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.test(\"Location header matches invoice UUID pattern\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.match(/\\/api\\/v1\\/invoices\\/[a-f0-9-]+/);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test(\"invoiceCounterValue === 1\", () => {",
+                  "    pm.expect(json.invoiceCounterValue).to.eql(1);",
+                  "});",
+                  "",
+                  "pm.test(\"previousInvoiceHash is genesis hash\", () => {",
+                  "    pm.expect(json.previousInvoiceHash).to.eql(\"NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI4NjliMDExMzg0NmNmNmIx\");",
+                  "});",
+                  "",
+                  "pm.test(\"invoiceHash is a non-empty string\", () => {",
+                  "    pm.expect(json.invoiceHash).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"qrCodeBase64 is a non-empty string\", () => {",
+                  "    pm.expect(json.qrCodeBase64).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"ublXml is a non-empty string\", () => {",
+                  "    pm.expect(json.ublXml).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-CHAIN-001\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"10:00:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Cloud Infrastructure Setup\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 1000.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": {\n        \"code\": \"Standard\",\n        \"rate\": 0.15\n      }\n    }\n  ],\n  \"allowanceTotal\": 0.00,\n  \"chargeTotal\": 0.00,\n  \"prepaidAmount\": 0.00,\n  \"payableRoundingAmount\": 0.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Chained B2C Simplified Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "",
+                  "pm.test(\"invoiceCounterValue is monotonically incremented\", () => {",
+                  "    pm.expect(json.invoiceCounterValue).to.eql(expectedIcv);",
+                  "});",
+                  "",
+                  "pm.test(\"previousInvoiceHash chains to last invoice\", () => {",
+                  "    pm.expect(json.previousInvoiceHash).to.eql(expectedHash);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-CHAIN-002\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"11:30:00\",\n  \"invoiceType\": \"SimplifiedTaxInvoice\",\n  \"transactionType\": \"B2C\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": null,\n  \"lineItems\": [\n    {\n      \"name\": \"Hardware Device\",\n      \"quantity\": 2.00,\n      \"unitPrice\": 150.00,\n      \"discountAmount\": 10.00,\n      \"taxCategory\": {\n        \"code\": \"Standard\",\n        \"rate\": 0.15\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Chained B2B Credit Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "",
+                  "pm.test(\"invoiceCounterValue is monotonically incremented\", () => {",
+                  "    pm.expect(json.invoiceCounterValue).to.eql(expectedIcv);",
+                  "});",
+                  "",
+                  "pm.test(\"previousInvoiceHash chains to last invoice\", () => {",
+                  "    pm.expect(json.previousInvoiceHash).to.eql(expectedHash);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"CN-CHAIN-003\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"12:00:00\",\n  \"invoiceType\": \"CreditNote\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Credit Adjustment\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 500.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": {\n        \"code\": \"Standard\",\n        \"rate\": 0.15\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Supported Document Types & Tax Categories",
+      "item": [
+        {
+          "name": "POST - B2B Debit Note with Zero-Rated Tax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "pm.test(\"invoiceCounterValue incremented by 1\", () => pm.expect(json.invoiceCounterValue).to.eql(expectedIcv));",
+                  "pm.test(\"previousInvoiceHash continuity\", () => pm.expect(json.previousInvoiceHash).to.eql(expectedHash));",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"DN-TYPE-001\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"13:00:00\",\n  \"invoiceType\": \"DebitNote\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Export Goods\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 800.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": {\n        \"code\": \"ZeroRated\",\n        \"rate\": 0.00\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - B2B Prepayment Invoice with Exempt Tax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "pm.test(\"invoiceCounterValue incremented by 1\", () => pm.expect(json.invoiceCounterValue).to.eql(expectedIcv));",
+                  "pm.test(\"previousInvoiceHash continuity\", () => pm.expect(json.previousInvoiceHash).to.eql(expectedHash));",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"PP-TYPE-002\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"13:30:00\",\n  \"invoiceType\": \"PrepaymentInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Financial Services\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 2000.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": {\n        \"code\": \"Exempt\",\n        \"rate\": 0.00,\n        \"exemptionReasonCode\": \"VATEX-SA-29\",\n        \"exemptionReason\": \"Financial services\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - B2C Simplified Invoice with Out-of-Scope Tax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "pm.test(\"invoiceCounterValue incremented by 1\", () => pm.expect(json.invoiceCounterValue).to.eql(expectedIcv));",
+                  "pm.test(\"previousInvoiceHash continuity\", () => pm.expect(json.previousInvoiceHash).to.eql(expectedHash));",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"B2C-TYPE-003\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"14:00:00\",\n  \"invoiceType\": \"SimplifiedTaxInvoice\",\n  \"transactionType\": \"B2C\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": null,\n  \"lineItems\": [\n    {\n      \"name\": \"Out-of-Scope Item\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 300.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": {\n        \"code\": \"OutOfScope\",\n        \"rate\": 0.00\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Invoice with Mixed Tax Categories, Allowances, & Charges",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\")) + 1;",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "pm.test(\"invoiceCounterValue incremented by 1\", () => pm.expect(json.invoiceCounterValue).to.eql(expectedIcv));",
+                  "pm.test(\"previousInvoiceHash continuity\", () => pm.expect(json.previousInvoiceHash).to.eql(expectedHash));",
+                  "pm.collectionVariables.set(\"lastIcv\", json.invoiceCounterValue);",
+                  "pm.collectionVariables.set(\"lastInvoiceHash\", json.invoiceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"MIX-TYPE-004\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"14:30:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Standard Taxed Product\",\n      \"quantity\": 2.00,\n      \"unitPrice\": 500.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 }\n    },\n    {\n      \"name\": \"Zero-Rated Export\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 200.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": { \"code\": \"ZeroRated\", \"rate\": 0.00 }\n    },\n    {\n      \"name\": \"Exempt Financial Service\",\n      \"quantity\": 1.00,\n      \"unitPrice\": 100.00,\n      \"discountAmount\": 0.00,\n      \"taxCategory\": { \"code\": \"Exempt\", \"rate\": 0.00, \"exemptionReasonCode\": \"VATEX-SA-29\", \"exemptionReason\": \"Financial services\" }\n    }\n  ],\n  \"allowanceTotal\": 20.00,\n  \"chargeTotal\": 10.00,\n  \"prepaidAmount\": 50.00,\n  \"payableRoundingAmount\": 0.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Hash Ledger & Outbox Dispatch",
+      "item": [
+        {
+          "name": "GET - Latest Hash Chain Record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "const expectedIcv = Number(pm.collectionVariables.get(\"lastIcv\"));",
+                  "const expectedHash = pm.collectionVariables.get(\"lastInvoiceHash\");",
+                  "",
+                  "pm.test(\"invoiceCounterValue matches lastIcv\", () => {",
+                  "    pm.expect(json.invoiceCounterValue).to.eql(expectedIcv);",
+                  "});",
+                  "",
+                  "pm.test(\"invoiceHash matches lastInvoiceHash\", () => {",
+                  "    pm.expect(json.invoiceHash).to.eql(expectedHash);",
+                  "});",
+                  "",
+                  "pm.test(\"previousInvoiceHash is a non-empty string\", () => {",
+                  "    pm.expect(json.previousInvoiceHash).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test(\"icv.value exists\", () => {",
+                  "    pm.expect(json).to.have.nested.property(\"icv.value\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices/chain/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices",
+                "chain",
+                "latest"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Trigger Outbox Processing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"processedCount is >= 0\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.processedCount).to.be.a(\"number\").and.to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/outbox/process?batchSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outbox",
+                "process"
+              ],
+              "query": [
+                {
+                  "key": "batchSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Negative Invariant & Validation Tests",
+      "item": [
+        {
+          "name": "POST - Invalid Seller VAT Number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions 15 digits\", () => pm.expect(json.detail).to.include(\"15 digits\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-001\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:00:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Bad Seller\",\n    \"vatRegistrationNumber\": \"12345\",\n    \"street\": \"Test St\",\n    \"buildingNumber\": \"1\",\n    \"postalZone\": \"11111\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Test\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Buyer\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Buyer St\",\n    \"buildingNumber\": \"2\",\n    \"postalZone\": \"22222\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Test\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Missing Buyer for B2B Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions Buyer is mandatory for B2B\", () => pm.expect(json.detail).to.include(\"Buyer is mandatory for B2B\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-002\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:01:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": null,\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Invalid Buyer VAT for B2B Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-003\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:02:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Bad Buyer\",\n    \"vatRegistrationNumber\": \"410123456700004\",\n    \"street\": \"Buyer St\",\n    \"buildingNumber\": \"2\",\n    \"postalZone\": \"22222\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Test\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Empty Line Items Array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions at least one line item\", () => pm.expect(json.detail).to.include(\"at least one line item\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-004\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:03:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Line Item Zero Quantity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions Quantity must be greater than zero\", () => pm.expect(json.detail).to.include(\"Quantity must be greater than zero\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-005\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:04:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 0, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Line Item Negative Unit Price",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions Unit price cannot be negative\", () => pm.expect(json.detail).to.include(\"Unit price cannot be negative\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-006\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:05:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": -50.00, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Discount Exceeds Gross Line Amount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions Discount amount cannot exceed the gross line amount\", () => pm.expect(json.detail).to.include(\"Discount amount cannot exceed the gross line amount\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-007\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:06:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100.00, \"discountAmount\": 150.00, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Negative Allowance Total",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"detail mentions cannot be negative\", () => pm.expect(json.detail).to.include(\"cannot be negative\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-008\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:07:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }],\n  \"allowanceTotal\": -10.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Malformed Raw JSON Syntax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"invoiceNumber\": \"INV-ERR\", \"invoiceType\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST - Invalid Enum Value",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Content-Type is application/problem+json\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RFC 7807 ProblemDetails: status 400\", () => pm.expect(json.status).to.eql(400));",
+                  "pm.test(\"RFC 7807 ProblemDetails: title exists\", () => pm.expect(json.title).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"RFC 7807 ProblemDetails: detail exists\", () => pm.expect(json.detail).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"ERR-010\",\n  \"issueDate\": \"2026-11-16\",\n  \"issueTime\": \"15:09:00\",\n  \"invoiceType\": \"InvalidUnknownType\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Acme Saudi Technologies\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1000\",\n    \"postalZone\": \"11564\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Global Retail Partners LLC\",\n    \"vatRegistrationNumber\": \"320987654300003\",\n    \"street\": \"Olaya Street\",\n    \"buildingNumber\": \"2000\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniya\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [{ \"name\": \"Item\", \"quantity\": 1, \"unitPrice\": 100, \"discountAmount\": 0, \"taxCategory\": { \"code\": \"Standard\", \"rate\": 0.15 } }]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "lastIcv",
+      "value": "0"
+    },
+    {
+      "key": "lastInvoiceHash",
+      "value": ""
+    }
+  ]
+}
