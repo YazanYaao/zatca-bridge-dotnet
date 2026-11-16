@@ -13,7 +13,8 @@ public sealed record ZatcaGatewayResponse(
     string? ReportingStatus = null,
     string? ClearedInvoiceXml = null,
     string? ErrorMessage = null,
-    string[]? ValidationErrors = null
+    string[]? ValidationErrors = null,
+    bool IsTransient = false
 );
 
 /// <summary>
@@ -30,4 +31,16 @@ public interface IZatcaGatewayClient
     /// Asynchronously dispatches a simplified B2C tax invoice to the ZATCA Reporting API.
     /// </summary>
     Task<ZatcaGatewayResponse> ReportInvoiceAsync(string invoiceHash, string ublXml, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synchronously dispatches a standard B2B tax invoice with an explicit UUID to the ZATCA Clearance API.
+    /// </summary>
+    Task<ZatcaGatewayResponse> ClearInvoiceAsync(string invoiceHash, string ublXml, string? uuid, CancellationToken cancellationToken = default)
+        => ClearInvoiceAsync(invoiceHash, ublXml, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously dispatches a simplified B2C tax invoice with an explicit UUID to the ZATCA Reporting API.
+    /// </summary>
+    Task<ZatcaGatewayResponse> ReportInvoiceAsync(string invoiceHash, string ublXml, string? uuid, CancellationToken cancellationToken = default)
+        => ReportInvoiceAsync(invoiceHash, ublXml, cancellationToken);
 }

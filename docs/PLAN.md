@@ -172,3 +172,68 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
   - [ ] B2B invoices dispatched to clearance endpoint; transitions status to `Cleared` or `Rejected`.
   - [ ] B2C invoices dispatched to reporting endpoint within 24 hours; transitions status to `Reported`.
   - [ ] Implements exponential backoff with jitter on transient network errors.
+
+---
+
+## 4. Milestone 3: ZATCA HTTP Gateway Adapter, Background Outbox Worker, & ASP.NET Core Minimal APIs
+
+### Task 3.1: ZATCA Sandbox/Simulation HTTP Gateway Client (`ZatcaHttpGatewayClient`)
+- **Goal**: Implement `ZatcaHttpGatewayClient` in `ZatcaBridge.Infrastructure/Gateway/` implementing `IZatcaGatewayClient` over `HttpClient`, serializing `{ invoiceHash, uuid, invoice: base64Xml }` payload to `/invoices/clearance/single` and `/invoices/reporting/single` with required headers (`Accept-Version: V2`, `Accept-Language: en`), and mapping HTTP 200/202, 400 validation rejections, and 5xx/network errors into `ZatcaGatewayResponse`.
+- **Blocked By**: Milestone 2 (Completed).
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/ZatcaHttpGatewayClientTests.cs`
+- **Infrastructure Classes & Contracts**:
+  - `src/ZatcaBridge.Infrastructure/Gateway/ZatcaGatewayOptions.cs`
+  - `src/ZatcaBridge.Infrastructure/Gateway/ZatcaHttpGatewayClient.cs`
+  - `src/ZatcaBridge.Application/Common/Interfaces/IZatcaGatewayClient.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Serializes request body as `{ invoiceHash, uuid, invoice }` where `invoice` is Base64-encoded UTF-8 UBL XML.
+  - [ ] Appends required HTTP headers: `Accept-Version: V2` and `Accept-Language: en`.
+  - [ ] Dispatches B2B invoices to `POST /invoices/clearance/single` and parses 200/202 response (`clearanceStatus: "CLEARED"`).
+  - [ ] Dispatches B2C invoices to `POST /invoices/reporting/single` and parses 200/202 response (`reportingStatus: "REPORTED"`).
+  - [ ] Maps 400 Bad Request / validation rejections to non-transient rejection (`IsSuccess = false, IsRejected = true, IsTransient = false`).
+  - [ ] Maps 5xx errors (e.g., 503 Service Unavailable) and `HttpRequestException` to transient retryable failure (`IsSuccess = false, IsRejected = false, IsTransient = true`).
+
+---
+
+### Task 3.2: Background Outbox Worker & Dependency Injection Registration
+- **Goal**: Implement `OutboxBackgroundWorker : BackgroundService` that periodically executes `OutboxProcessor.ProcessPendingMessagesAsync` on a configurable polling interval, and add DI extension methods `AddZatcaApplication` and `AddZatcaInfrastructure`.
+- **Blocked By**: Task 3.1
+- **Test File**: `tests/ZatcaBridge.UnitTests/Infrastructure/OutboxBackgroundWorkerTests.cs`
+- **Application & Infrastructure Classes**:
+  - `src/ZatcaBridge.Infrastructure/BackgroundServices/OutboxBackgroundWorker.cs`
+  - `src/ZatcaBridge.Application/DependencyInjection.cs`
+  - `src/ZatcaBridge.Infrastructure/DependencyInjection.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Worker runs periodically in background and invokes `OutboxProcessor` within a scoped `IServiceScope`.
+  - [ ] Gracefully handles `OperationCanceledException` during application shutdown.
+  - [ ] `AddZatcaApplication` registers application use cases, validators, and handlers.
+  - [ ] `AddZatcaInfrastructure` registers EF Core DbContext, repositories, `UblXmlGenerator`, `HttpClient`, and `ZatcaHttpGatewayClient`.
+
+---
+
+### Task 3.3: ASP.NET Core Minimal API Endpoints & RFC 7807 Error Handling
+- **Goal**: Implement Minimal API route endpoints in `ZatcaBridge.Api` with RFC 7807 `ProblemDetails` exception handling.
+- **Blocked By**: Task 3.2
+- **Test File**: `tests/ZatcaBridge.UnitTests/Api/EndpointRouteTests.cs`
+- **Api Classes & Middleware**:
+  - `src/ZatcaBridge.Api/Endpoints/InvoiceEndpoints.cs`
+  - `src/ZatcaBridge.Api/Middleware/ProblemDetailsExceptionHandler.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] `POST /api/v1/invoices` validates input DTO, issues invoice via `IssueInvoiceHandler`, and returns HTTP 201 Created with invoice hash, ICV, QR code, and UBL XML.
+  - [ ] `GET /api/v1/invoices/chain/latest` returns HTTP 200 OK with latest ICV and hash or HTTP 404 Not Found if empty.
+  - [ ] `POST /api/v1/outbox/process` manually triggers immediate outbox batch processing and returns count of processed messages.
+  - [ ] Domain exceptions (`ValidationException`, `InvalidOperationException`) map to RFC 7807 `ProblemDetails` with HTTP 400 Bad Request.
+
+---
+
+### Task 3.4: End-to-End API Integration Tests
+- **Goal**: Full vertical-slice integration test suite utilizing `WebApplicationFactory<Program>` with an in-memory SQLite database and mocked HTTP gateway.
+- **Blocked By**: Task 3.3
+- **Test File**: `tests/ZatcaBridge.UnitTests/Api/InvoiceIntegrationTests.cs`
+- **Integration Test Infrastructure**:
+  - `src/ZatcaBridge.Api/Program.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [ ] Issues Genesis invoice via API endpoint, verifies database persistence and outbox message creation.
+  - [ ] Issues second chained invoice, verifying sequential ICV (2) and PIH matching invoice 1's hash.
+  - [ ] Triggers outbox processing and verifies status transitions to `Cleared` or `Reported`.
+  - [ ] Confirms full RFC 7807 problem details response on invalid VAT number or malformed line items.
