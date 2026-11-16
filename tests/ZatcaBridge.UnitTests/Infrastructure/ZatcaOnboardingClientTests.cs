@@ -107,7 +107,7 @@ public class ZatcaOnboardingClientTests
         var csidRepo = new InMemoryCsidRepository();
         var client = new ZatcaOnboardingClient(httpClient, csidRepo);
 
-        var csrPem = "-----BEGIN CERTIFICATE REQUEST-----\nMIIB...test...\n-----END CERTIFICATE REQUEST-----";
+        var csrPem = "-----BEGIN CERTIFICATE REQUEST-----\nAQIDBAU=\n-----END CERTIFICATE REQUEST-----";
         var privateKeyPem = "-----BEGIN EC PRIVATE KEY-----\nMIIE...key...\n-----END EC PRIVATE KEY-----";
         var otp = "123345";
 

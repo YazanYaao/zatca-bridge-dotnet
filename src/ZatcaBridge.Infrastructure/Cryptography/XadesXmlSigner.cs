@@ -319,15 +319,50 @@ public class XadesXmlSigner : IXadesXmlSigner
 
     private static X509Certificate ParseCertificate(string pem)
     {
-        using var reader = new StringReader(pem);
-        var pemReader = new PemReader(reader);
-        var obj = pemReader.ReadObject();
-
-        if (obj is X509Certificate cert)
+        try
         {
-            return cert;
+            using var reader = new StringReader(pem);
+            var pemReader = new PemReader(reader);
+            var obj = pemReader.ReadObject();
+
+            if (obj is X509Certificate cert)
+            {
+                return cert;
+            }
+        }
+        catch
+        {
+            // If PemReader throws due to nested Base64 encoding (e.g. ZATCA binarySecurityToken), handle below
         }
 
-        throw new ArgumentException("Failed to extract X.509 certificate from PEM string.");
+        var clean = pem
+            .Replace("-----BEGIN CERTIFICATE-----", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("-----END CERTIFICATE-----", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("\r", "")
+            .Replace("\n", "")
+            .Trim();
+
+        try
+        {
+            var bytes = Convert.FromBase64String(clean);
+            var utf8 = Encoding.UTF8.GetString(bytes);
+
+            // If the decoded content is ASCII Base64 certificate starting with "MII"
+            if (utf8.StartsWith("MII", StringComparison.OrdinalIgnoreCase))
+            {
+                var der = Convert.FromBase64String(utf8);
+                var parser = new X509CertificateParser();
+                return parser.ReadCertificate(der);
+            }
+            else
+            {
+                var parser = new X509CertificateParser();
+                return parser.ReadCertificate(bytes);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException("Failed to extract X.509 certificate from PEM string.", ex);
+        }
     }
 }

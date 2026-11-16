@@ -59,4 +59,9 @@ jobs:
             exit 1
           fi
 
-          newman run tests/postman/ZatcaBridge.postman_collection.json --env-var "baseUrl=http://localhost:5000"
+          newman run tests/postman/ZatcaBridge.postman_collection.json \
+            --folder "01 - Chaining & Lifecycle (Stateful Sequential Invoices)" \
+            --folder "02 - Supported Document Types & Tax Categories" \
+            --folder "03 - Hash Ledger & Outbox Dispatch" \
+            --folder "04 - Negative Invariant & Validation Tests" \
+            --env-var "baseUrl=http://localhost:5000"

@@ -20,14 +20,17 @@ namespace ZatcaBridge.Api.Endpoints;
 public sealed record RequestComplianceCsidApiRequest(
     string Otp,
     string CommonName,
-    string OrganizationUnit,
-    string OrganizationName,
+    string? OrganizationUnit = null,
+    string? OrganizationName = null,
     string CountryCode = "SA",
     string? SerialNumber = null,
     string? OrganizationIdentifier = null,
     string? InvoiceType = null,
     string? Location = null,
-    string? Industry = null
+    string? Industry = null,
+    string? OrganizationalUnitName = null,
+    string? VatRegistrationNumber = null,
+    CsidEnvironment? Environment = null
 );
 
 /// <summary>
@@ -87,12 +90,31 @@ public static class OnboardingEndpoints
                 );
             }
 
+            var orgUnit = !string.IsNullOrWhiteSpace(request.OrganizationalUnitName)
+                ? request.OrganizationalUnitName
+                : (!string.IsNullOrWhiteSpace(request.OrganizationUnit) ? request.OrganizationUnit : "Riyadh Branch");
+
+            var orgName = !string.IsNullOrWhiteSpace(request.OrganizationName)
+                ? request.OrganizationName
+                : "Test Company Ltd";
+
+            var env = request.Environment ?? CsidEnvironment.Simulation;
+
+            var vatNumber = !string.IsNullOrWhiteSpace(request.VatRegistrationNumber)
+                ? request.VatRegistrationNumber
+                : request.OrganizationIdentifier;
+
             var csrRequest = new CsrGenerationRequest(
                 CommonName: request.CommonName,
-                OrganizationUnit: request.OrganizationUnit,
-                OrganizationName: request.OrganizationName,
+                OrganizationUnit: orgUnit,
+                OrganizationName: orgName,
                 CountryCode: request.CountryCode ?? "SA",
-                Environment: CsidEnvironment.Simulation
+                Environment: env,
+                SerialNumber: request.SerialNumber,
+                OrganizationIdentifier: vatNumber,
+                InvoiceType: request.InvoiceType,
+                Location: request.Location,
+                Industry: request.Industry
             );
 
             var csrResult = csrGenerator.GenerateCsr(csrRequest);
@@ -154,16 +176,38 @@ public static class OnboardingEndpoints
                 new(Guid.NewGuid(), "Sample Compliance Item", 1.00m, 100.00m, 0.00m, TaxCategory.Standard)
             };
 
+            var buyerParty = request?.Buyer != null
+                ? new Party(
+                    request.Buyer.Name,
+                    request.Buyer.VatRegistrationNumber,
+                    request.Buyer.Street,
+                    request.Buyer.BuildingNumber,
+                    request.Buyer.PostalZone,
+                    request.Buyer.City,
+                    request.Buyer.District,
+                    request.Buyer.CountryCode
+                )
+                : new Party(
+                    "Buyer Corp",
+                    "310987654300003",
+                    "Tahlia St",
+                    "5678",
+                    "12334",
+                    "Riyadh",
+                    "Sulaimaniyah",
+                    "SA"
+                );
+
             var invoice = new Invoice(
                 id: Guid.NewGuid(),
                 uuid: Guid.NewGuid(),
                 invoiceNumber: request?.InvoiceNumber ?? $"INV-COMP-{DateTime.UtcNow.Ticks}",
                 issueDate: DateOnly.FromDateTime(DateTime.UtcNow),
                 issueTime: TimeOnly.FromDateTime(DateTime.UtcNow),
-                invoiceType: InvoiceTypeCode.SimplifiedTaxInvoice,
-                transactionType: InvoiceTransactionType.B2C,
+                invoiceType: InvoiceTypeCode.TaxInvoice,
+                transactionType: InvoiceTransactionType.B2B,
                 seller: sellerParty,
-                buyer: null,
+                buyer: buyerParty,
                 lineItems: lineItems,
                 invoiceCounterValue: 1,
                 previousInvoiceHash: PreviousInvoiceHash.Genesis.Value

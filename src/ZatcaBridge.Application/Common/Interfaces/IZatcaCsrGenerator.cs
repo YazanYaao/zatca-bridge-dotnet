@@ -10,7 +10,12 @@ public sealed record CsrGenerationRequest(
     string OrganizationUnit,
     string OrganizationName,
     string CountryCode = "SA",
-    CsidEnvironment Environment = CsidEnvironment.Simulation
+    CsidEnvironment Environment = CsidEnvironment.Simulation,
+    string? SerialNumber = null,
+    string? OrganizationIdentifier = null,
+    string? InvoiceType = null,
+    string? Location = null,
+    string? Industry = null
 );
 
 /// <summary>

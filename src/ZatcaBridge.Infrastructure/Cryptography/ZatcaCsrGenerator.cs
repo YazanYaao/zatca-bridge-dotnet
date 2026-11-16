@@ -65,7 +65,7 @@ public class ZatcaCsrGenerator : IZatcaCsrGenerator
         var order = new List<DerObjectIdentifier> { X509Name.C, X509Name.O, X509Name.OU, X509Name.CN };
         var subject = new X509Name(order, attrs);
 
-        // 3. Add custom Microsoft extension OID 1.3.6.1.4.1.311.20.2 (CertificateTemplateName)
+        // 3. Add custom Microsoft extension OID 1.3.6.1.4.1.311.20.2 (CertificateTemplateName) and SubjectAlternativeName (SAN)
         var templateName = request.Environment == CsidEnvironment.Production
             ? "ZATCA-Code-Signing"
             : "PREZATCA-Code-Signing";
@@ -76,6 +76,51 @@ public class ZatcaCsrGenerator : IZatcaCsrGenerator
             critical: false,
             new DerUtf8String(templateName)
         );
+
+        var sanAttrs = new List<DerObjectIdentifier>();
+        var sanValues = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(request.SerialNumber))
+        {
+            sanAttrs.Add(X509Name.Surname); // 2.5.4.4 (SN)
+            sanValues.Add(request.SerialNumber.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.OrganizationIdentifier))
+        {
+            sanAttrs.Add(X509Name.UID); // 0.9.2342.19200300.100.1.1 (UID)
+            sanValues.Add(request.OrganizationIdentifier.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.InvoiceType))
+        {
+            sanAttrs.Add(X509Name.T); // 2.5.4.12 (title)
+            sanValues.Add(request.InvoiceType.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Location))
+        {
+            sanAttrs.Add(new DerObjectIdentifier("2.5.4.26")); // registeredAddress
+            sanValues.Add(request.Location.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Industry))
+        {
+            sanAttrs.Add(X509Name.BusinessCategory); // 2.5.4.15 (businessCategory)
+            sanValues.Add(request.Industry.Trim());
+        }
+
+        if (sanAttrs.Count > 0)
+        {
+            var sanName = new X509Name(sanAttrs, sanValues);
+            var generalNames = new GeneralNames(new GeneralName(GeneralName.DirectoryName, sanName));
+            extGen.AddExtension(
+                X509Extensions.SubjectAlternativeName,
+                critical: false,
+                generalNames
+            );
+        }
+
         var extensions = extGen.Generate();
         var attr = new AttributePkcs(PkcsObjectIdentifiers.Pkcs9AtExtensionRequest, new DerSet(extensions));
         var attributes = new DerSet(attr);

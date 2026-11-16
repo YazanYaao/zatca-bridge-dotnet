@@ -1041,6 +1041,297 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "05 - Live ZATCA Sandbox Onboarding & Signed Dispatch",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.variables.get(\"enableLiveZatca\") !== \"true\") {",
+              "    pm.execution.skipRequest();",
+              "}"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "01 - Check Initial Onboarding Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK or 404\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test(\"Response contains onboarding status metadata\", () => {",
+                  "        pm.expect(json).to.have.property(\"isActive\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/onboarding/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "onboarding",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 - Request Compliance CSID from ZATCA Sandbox",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK or 201 Created\", () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test(\"isActive is true\", () => {",
+                  "    pm.expect(json.isActive).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"environment is Simulation\", () => {",
+                  "    pm.expect(json.environment).to.eql(\"Simulation\");",
+                  "});",
+                  "",
+                  "pm.test(\"Zero credential leakage (privateKeyPem and secret are NOT exposed)\", () => {",
+                  "    pm.expect(json).to.not.have.property(\"privateKeyPem\");",
+                  "    pm.expect(json).to.not.have.property(\"secret\");",
+                  "});",
+                  "",
+                  "if (json.requestId) {",
+                  "    pm.collectionVariables.set(\"complianceRequestId\", json.requestId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123345\",\n  \"commonName\": \"TST-886431145-310123456700003\",\n  \"organizationName\": \"Test Company Ltd\",\n  \"organizationalUnitName\": \"Riyadh Branch\",\n  \"vatRegistrationNumber\": \"310123456700003\",\n  \"serialNumber\": \"1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f\",\n  \"invoiceType\": \"1100\",\n  \"location\": \"Riyadh\",\n  \"industry\": \"Retail\",\n  \"environment\": \"Simulation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/onboarding/compliance-csid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "onboarding",
+                "compliance-csid"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03 - Run ZATCA Compliance Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test(\"ZATCA compliance check evaluated\", () => {",
+                  "    pm.expect(json).to.have.property(\"status\");",
+                  "    const effectiveStatus = json.reportingStatus || json.clearanceStatus || json.status;",
+                  "    pm.expect(effectiveStatus).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-COMP-{{$timestamp}}\",\n  \"seller\": {\n    \"name\": \"Test Company Ltd\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12211\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/onboarding/compliance-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "onboarding",
+                "compliance-check"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "04 - Issue Phase 2 Signed B2B Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test(\"QR code is Phase 2 TLV Tags 1-9 (length > 200)\", () => {",
+                  "    pm.expect(json.qrCodeBase64).to.be.a(\"string\");",
+                  "    pm.expect(json.qrCodeBase64.length).to.be.above(200);",
+                  "});",
+                  "",
+                  "pm.test(\"UBL XML contains XAdES-BES digital signature extensions\", () => {",
+                  "    pm.expect(json.ublXml).to.include(\"ext:UBLExtensions\");",
+                  "    pm.expect(json.ublXml).to.include(\"ds:Signature\");",
+                  "});",
+                  "",
+                  "pm.test(\"invoiceHash is a non-empty string\", () => {",
+                  "    pm.expect(json.invoiceHash).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-PHASE2-LIVE-{{$timestamp}}\",\n  \"issueDate\": \"2026-11-17\",\n  \"issueTime\": \"12:00:00\",\n  \"invoiceType\": \"TaxInvoice\",\n  \"transactionType\": \"B2B\",\n  \"seller\": {\n    \"name\": \"Test Company Ltd\",\n    \"vatRegistrationNumber\": \"310123456700003\",\n    \"street\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12211\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Olaya\",\n    \"countryCode\": \"SA\"\n  },\n  \"buyer\": {\n    \"name\": \"Buyer Corp\",\n    \"vatRegistrationNumber\": \"310987654300003\",\n    \"street\": \"Tahlia Street\",\n    \"buildingNumber\": \"5678\",\n    \"postalZone\": \"12334\",\n    \"city\": \"Riyadh\",\n    \"district\": \"Sulaimaniyah\",\n    \"countryCode\": \"SA\"\n  },\n  \"lineItems\": [\n    {\n      \"name\": \"Cloud Integration Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 1000,\n      \"discountAmount\": 0,\n      \"taxCategory\": {\n        \"code\": \"Standard\",\n        \"rate\": 0.15\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invoices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "05 - Dispatch Signed Invoice to ZATCA Sandbox via Outbox",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const json = pm.response.json();",
+                  "",
+                  "pm.test(\"Outbox execution returned processed count\", () => {",
+                  "    pm.expect(json).to.have.property(\"processedCount\");",
+                  "    pm.expect(json.processedCount).to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/outbox/process?batchSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "outbox",
+                "process"
+              ],
+              "query": [
+                {
+                  "key": "batchSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -1055,6 +1346,10 @@
     {
       "key": "lastInvoiceHash",
       "value": ""
+    },
+    {
+      "key": "enableLiveZatca",
+      "value": "false"
     }
   ]
 }
