@@ -158,7 +158,8 @@ public static class OnboardingEndpoints
                     request.Seller.PostalZone,
                     request.Seller.City,
                     request.Seller.District,
-                    request.Seller.CountryCode
+                    request.Seller.CountryCode,
+                    crn: "1010010000"
                 )
                 : new Party(
                     "Acme Saudi Co",
@@ -168,7 +169,8 @@ public static class OnboardingEndpoints
                     "12211",
                     "Riyadh",
                     "Olaya",
-                    "SA"
+                    "SA",
+                    crn: "1010010000"
                 );
 
             var lineItems = new List<InvoiceLineItem>

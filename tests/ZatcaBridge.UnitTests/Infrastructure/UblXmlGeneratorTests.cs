@@ -62,9 +62,9 @@ public class UblXmlGeneratorTests
         Assert.Equal("Invoice", doc.Root.Name.LocalName);
         Assert.Equal(NsInvoice.NamespaceName, doc.Root.Name.NamespaceName);
 
-        // Check ProfileID is clearance:1.0 for B2B
+        // Check ProfileID is reporting:1.0 (BR-KSA-EN16931-01)
         var profileId = doc.Root.Element(NsCbc + "ProfileID")?.Value;
-        Assert.Equal("clearance:1.0", profileId);
+        Assert.Equal("reporting:1.0", profileId);
 
         // Check Invoice ID & UUID
         Assert.Equal("INV-2026-0001", doc.Root.Element(NsCbc + "ID")?.Value);
@@ -280,6 +280,71 @@ public class UblXmlGeneratorTests
             ?.Element(NsCbc + "Name")?.Value;
 
         Assert.Equal(arabicItemName, itemName);
+    }
+
+    [Fact]
+    public void GenerateXml_ComplianceStandards_ValidatesZatcaPhase2Rules()
+    {
+        // Arrange
+        var seller = new Party("Acme Saudi Co", "310123456700003", "Olaya St", "1234", "12211", "Riyadh", "Olaya", "SA", crn: "1010010000");
+        var buyer = new Party("Buyer Corp", "310987654300003", "Tahlia St", "5678", "12334", "Riyadh", "Sulaimaniyah", "SA", crn: "1010020000");
+        var line = new InvoiceLineItem(Guid.NewGuid(), "Item", 1, 100, 0, TaxCategory.Standard);
+
+        var invoice = new Invoice(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "INV-COMPLIANCE-TEST",
+            new DateOnly(2026, 11, 18),
+            new TimeOnly(12, 0, 0),
+            InvoiceTypeCode.TaxInvoice,
+            InvoiceTransactionType.B2B,
+            seller,
+            buyer,
+            new[] { line }
+        );
+
+        var generator = new UblXmlGenerator();
+
+        // Act
+        var xmlString = generator.GenerateXml(invoice);
+        var doc = XDocument.Parse(xmlString);
+
+        // 1. ProfileID must be reporting:1.0 (BT-23 / BR-KSA-EN16931-01)
+        Assert.Equal("reporting:1.0", doc.Root?.Element(NsCbc + "ProfileID")?.Value);
+
+        // 2. Seller Identification (BT-29) must have schemeID="CRN"
+        var sellerId = doc.Root?.Element(NsCac + "AccountingSupplierParty")
+            ?.Element(NsCac + "Party")
+            ?.Element(NsCac + "PartyIdentification")
+            ?.Element(NsCbc + "ID");
+        Assert.NotNull(sellerId);
+        Assert.Equal("CRN", sellerId.Attribute("schemeID")?.Value);
+        Assert.Equal("1010010000", sellerId.Value);
+
+        // 3. Delivery date (KSA-5) must exist for B2B tax invoice
+        var deliveryDate = doc.Root?.Element(NsCac + "Delivery")?.Element(NsCbc + "ActualDeliveryDate");
+        Assert.NotNull(deliveryDate);
+        Assert.Equal("2026-11-18", deliveryDate.Value);
+
+        // 4. District must be mapped to CitySubdivisionName (KSA-3 & KSA-4)
+        var sellerDistrict = doc.Root?.Element(NsCac + "AccountingSupplierParty")
+            ?.Element(NsCac + "Party")
+            ?.Element(NsCac + "PostalAddress")
+            ?.Element(NsCbc + "CitySubdivisionName")?.Value;
+        Assert.Equal("Olaya", sellerDistrict);
+
+        var buyerDistrict = doc.Root?.Element(NsCac + "AccountingCustomerParty")
+            ?.Element(NsCac + "Party")
+            ?.Element(NsCac + "PostalAddress")
+            ?.Element(NsCbc + "CitySubdivisionName")?.Value;
+        Assert.Equal("Sulaimaniyah", buyerDistrict);
+
+        // 5. Two TaxTotal elements must exist (BR-KSA-EN16931-09): one with subtotals and one without subtotals
+        var taxTotals = doc.Root?.Elements(NsCac + "TaxTotal").ToList();
+        Assert.NotNull(taxTotals);
+        Assert.Equal(2, taxTotals.Count);
+        Assert.True(taxTotals[0].Elements(NsCac + "TaxSubtotal").Any(), "First TaxTotal should contain TaxSubtotals");
+        Assert.False(taxTotals[1].Elements(NsCac + "TaxSubtotal").Any(), "Second TaxTotal must NOT contain TaxSubtotals");
     }
 
     [Fact]

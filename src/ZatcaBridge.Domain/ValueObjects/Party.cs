@@ -15,6 +15,7 @@ public sealed record Party
     public string? City { get; }
     public string? District { get; }
     public string CountryCode { get; }
+    public string? Crn { get; }
 
     public Party(
         string registrationName,
@@ -24,7 +25,8 @@ public sealed record Party
         string? postalCode = null,
         string? city = null,
         string? district = null,
-        string countryCode = "SA")
+        string countryCode = "SA",
+        string? crn = null)
     {
         if (string.IsNullOrWhiteSpace(registrationName))
         {
@@ -44,6 +46,7 @@ public sealed record Party
         City = city?.Trim();
         District = district?.Trim();
         CountryCode = string.IsNullOrWhiteSpace(countryCode) ? "SA" : countryCode.Trim();
+        Crn = crn?.Trim();
     }
 
     private static void ValidateKsaVatNumber(string vatNumber)

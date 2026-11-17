@@ -33,7 +33,8 @@ public class UblXmlGenerator : IZatcaXmlGenerator
         var settings = new XmlWriterSettings
         {
             Encoding = new UTF8Encoding(false), // UTF-8 without BOM
-            Indent = true,
+            Indent = false,
+            NewLineChars = "\n",
             OmitXmlDeclaration = false
         };
 
@@ -62,8 +63,8 @@ public class UblXmlGenerator : IZatcaXmlGenerator
             new XAttribute(XNamespace.Xmlns + "cbc", NsCbc.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "ext", NsExt.NamespaceName),
 
-            // ProfileID: reporting:1.0 (B2C) or clearance:1.0 (B2B)
-            new XElement(NsCbc + "ProfileID", invoice.TransactionType == InvoiceTransactionType.B2B ? "clearance:1.0" : "reporting:1.0"),
+            // ProfileID: reporting:1.0 is mandatory for all ZATCA Phase 2 invoices (BR-KSA-EN16931-01)
+            new XElement(NsCbc + "ProfileID", "reporting:1.0"),
             new XElement(NsCbc + "ID", invoice.InvoiceNumber),
             new XElement(NsCbc + "UUID", invoice.Uuid.ToString()),
             new XElement(NsCbc + "IssueDate", invoice.IssueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
@@ -120,8 +121,24 @@ public class UblXmlGenerator : IZatcaXmlGenerator
             root.Add(BuildCustomerParty(invoice.Buyer));
         }
 
-        // TaxTotal
+        // Delivery / ActualDeliveryDate (KSA-5 - mandatory for Tax Invoices / B2B)
+        if (invoice.TransactionType == InvoiceTransactionType.B2B)
+        {
+            root.Add(new XElement(NsCac + "Delivery",
+                new XElement(NsCbc + "ActualDeliveryDate", invoice.IssueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+            ));
+        }
+
+        // TaxTotal: 1) TaxTotal with subtotals (document currency breakdown)
         root.Add(BuildTaxTotal(invoice));
+
+        // TaxTotal: 2) TaxTotal without subtotals (mandatory when TaxCurrencyCode is provided per BR-KSA-EN16931-09)
+        root.Add(new XElement(NsCac + "TaxTotal",
+            new XElement(NsCbc + "TaxAmount",
+                new XAttribute("currencyID", CurrencyId),
+                invoice.TotalTaxAmount.ToString("0.00", CultureInfo.InvariantCulture)
+            )
+        ));
 
         // LegalMonetaryTotal
         root.Add(BuildLegalMonetaryTotal(invoice.MonetaryTotal));
@@ -137,27 +154,45 @@ public class UblXmlGenerator : IZatcaXmlGenerator
 
     private static XElement BuildSupplierParty(Party seller)
     {
-        return new XElement(NsCac + "AccountingSupplierParty",
-            new XElement(NsCac + "Party",
-                BuildPostalAddress(seller),
-                new XElement(NsCac + "PartyTaxScheme",
-                    new XElement(NsCbc + "CompanyID", seller.VatNumber),
-                    new XElement(NsCac + "TaxScheme",
-                        new XElement(NsCbc + "ID", "VAT")
-                    )
-                ),
-                new XElement(NsCac + "PartyLegalEntity",
-                    new XElement(NsCbc + "RegistrationName", seller.RegistrationName)
-                )
+        var party = new XElement(NsCac + "Party");
+
+        var crn = !string.IsNullOrWhiteSpace(seller.Crn) ? seller.Crn : "1010010000";
+        party.Add(new XElement(NsCac + "PartyIdentification",
+            new XElement(NsCbc + "ID",
+                new XAttribute("schemeID", "CRN"),
+                crn
             )
-        );
+        ));
+
+        party.Add(BuildPostalAddress(seller));
+        party.Add(new XElement(NsCac + "PartyTaxScheme",
+            new XElement(NsCbc + "CompanyID", seller.VatNumber),
+            new XElement(NsCac + "TaxScheme",
+                new XElement(NsCbc + "ID", "VAT")
+            )
+        ));
+        party.Add(new XElement(NsCac + "PartyLegalEntity",
+            new XElement(NsCbc + "RegistrationName", seller.RegistrationName)
+        ));
+
+        return new XElement(NsCac + "AccountingSupplierParty", party);
     }
 
     private static XElement BuildCustomerParty(Party buyer)
     {
-        var partyElements = new XElement(NsCac + "Party",
-            BuildPostalAddress(buyer)
-        );
+        var partyElements = new XElement(NsCac + "Party");
+
+        if (!string.IsNullOrWhiteSpace(buyer.Crn))
+        {
+            partyElements.Add(new XElement(NsCac + "PartyIdentification",
+                new XElement(NsCbc + "ID",
+                    new XAttribute("schemeID", "CRN"),
+                    buyer.Crn
+                )
+            ));
+        }
+
+        partyElements.Add(BuildPostalAddress(buyer));
 
         if (!string.IsNullOrWhiteSpace(buyer.VatNumber))
         {
@@ -192,6 +227,11 @@ public class UblXmlGenerator : IZatcaXmlGenerator
         if (!string.IsNullOrWhiteSpace(party.BuildingNumber))
         {
             address.Add(new XElement(NsCbc + "BuildingNumber", party.BuildingNumber));
+        }
+
+        if (!string.IsNullOrWhiteSpace(party.District))
+        {
+            address.Add(new XElement(NsCbc + "CitySubdivisionName", party.District));
         }
 
         if (!string.IsNullOrWhiteSpace(party.City))

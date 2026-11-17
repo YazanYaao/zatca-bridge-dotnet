@@ -130,6 +130,7 @@ public class XadesXmlSigner : IXadesXmlSigner
         var signedPropertiesHashBase64 = Convert.ToBase64String(SHA256.HashData(signedPropertiesBytes));
 
         var dsSignature = new XElement(NsDs + "Signature",
+            new XAttribute(XNamespace.Xmlns + "ds", NsDs.NamespaceName),
             new XAttribute("Id", "signature"),
             new XElement(NsDs + "SignedInfo",
                 new XElement(NsDs + "CanonicalizationMethod", new XAttribute("Algorithm", "http://www.w3.org/2006/12/xml-c14n11")),
@@ -172,6 +173,7 @@ public class XadesXmlSigner : IXadesXmlSigner
             ),
             new XElement(NsDs + "Object",
                 new XElement(NsXades + "QualifyingProperties",
+                    new XAttribute(XNamespace.Xmlns + "xades", NsXades.NamespaceName),
                     new XAttribute("Target", "signature"),
                     signedProperties
                 )
@@ -183,6 +185,9 @@ public class XadesXmlSigner : IXadesXmlSigner
                 new XElement(NsExt + "ExtensionURI", "urn:oasis:names:specification:ubl:dsig:enveloped:xades"),
                 new XElement(NsExt + "ExtensionContent",
                     new XElement(NsSig + "UBLDocumentSignatures",
+                        new XAttribute(XNamespace.Xmlns + "sig", NsSig.NamespaceName),
+                        new XAttribute(XNamespace.Xmlns + "sac", NsSac.NamespaceName),
+                        new XAttribute(XNamespace.Xmlns + "sbc", NsSbc.NamespaceName),
                         new XElement(NsSac + "SignatureInformation",
                             new XElement(NsCbc + "ID", "urn:oasis:names:specification:ubl:signature:1"),
                             new XElement(NsSbc + "ReferencedSignatureID", "urn:oasis:names:specification:ubl:signature:Invoice"),
@@ -208,13 +213,8 @@ public class XadesXmlSigner : IXadesXmlSigner
             )
         );
 
-        // Inject ublExtensions as first child of <Invoice> and ensure standard namespace prefixes
+        // Inject ublExtensions as first child of <Invoice>
         xDoc.Root!.AddFirst(ublExtensions);
-        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "ds", NsDs.NamespaceName);
-        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "xades", NsXades.NamespaceName);
-        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sig", NsSig.NamespaceName);
-        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sac", NsSac.NamespaceName);
-        xDoc.Root.SetAttributeValue(XNamespace.Xmlns + "sbc", NsSbc.NamespaceName);
 
         // Add QR Document Reference
         var pihRef = xDoc.Descendants(NsCac + "AdditionalDocumentReference")
@@ -285,7 +285,8 @@ public class XadesXmlSigner : IXadesXmlSigner
         var settings = new XmlWriterSettings
         {
             Encoding = new UTF8Encoding(false),
-            Indent = true,
+            Indent = false,
+            NewLineChars = "\n",
             OmitXmlDeclaration = false
         };
 
