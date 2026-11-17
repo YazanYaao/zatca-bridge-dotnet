@@ -485,3 +485,11 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Node / Frontend
+node_modules/
+dist/
+ui/dist/
+.vite/
+*.local
+

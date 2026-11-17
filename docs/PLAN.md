@@ -314,3 +314,44 @@ Every task strictly adheres to the TDD loop defined in `AGENTS.md` and `.agents/
   - [x] `POST /api/v1/onboarding/production-csid` promotes compliance CSID to production CSID via `/production/csids`.
   - [x] `GET /api/v1/onboarding/status` returns non-sensitive metadata for the active CSID.
   - [x] `ZatcaHttpGatewayClient` automatically uses CSID Basic Authentication for all live sandbox clearance/reporting requests.
+
+---
+
+## 6. Milestone 5: React + Vite Sandbox Playground UI, Query Endpoints, & Cryptographic Explorer
+
+### Task 5.1: Backend Query Endpoints, Pagination, & CORS Configuration
+- **Goal**: Implement read-only endpoints (`GET /api/v1/invoices`, `GET /api/v1/invoices/{id}`, `GET /api/v1/invoices/chain`, `GET /api/v1/outbox`) with pagination, sorting, and XML/QR detail extraction, enable CORS for Vite dev server (`http://localhost:5173`), and configure static file / SPA fallback hosting (`wwwroot/index.html`).
+- **Blocked By**: Milestone 4 (Completed).
+- **Test File**: `tests/ZatcaBridge.UnitTests/Api/InvoiceQueryEndpointsTests.cs`
+- **Application & Api Contracts**:
+  - `src/ZatcaBridge.Api/Endpoints/InvoiceEndpoints.cs`
+  - `src/ZatcaBridge.Api/Program.cs`
+- **Acceptance Criteria & Test Cases**:
+  - [x] `GET /api/v1/invoices` returns paginated summaries with ICV, totals, and party details.
+  - [x] `GET /api/v1/invoices/{id}` returns full aggregate details, `xmlPayload`, `qrCodeBase64`, `invoiceHash`, and outbox status.
+  - [x] `GET /api/v1/invoices/chain` returns full chronological ledger with verified continuity.
+  - [x] `GET /api/v1/outbox` returns pending/processed queue messages sorted by ICV descending.
+  - [x] Enables CORS for Vite local dev server and serves static SPA files from `wwwroot`.
+
+---
+
+### Task 5.2: React + Vite Sandbox UI Architecture, TLV Decoder, & Invariant Calculators
+- **Goal**: Build modular React 18 + TypeScript + Vite + Tailwind CSS + Lucide React + TanStack Query UI in `ui/` directory, compiling production bundle to `src/ZatcaBridge.Api/wwwroot`.
+- **Blocked By**: Task 5.1
+- **UI Architecture & Components**:
+  - `ui/src/types/api.ts`
+  - `ui/src/utils/calculations.ts`
+  - `ui/src/utils/tlvDecoder.ts`
+  - `ui/src/api/client.ts`
+  - `ui/src/components/Navigation.tsx`
+  - `ui/src/components/tabs/OnboardingTab.tsx`
+  - `ui/src/components/tabs/InvoiceBuilderTab.tsx`
+  - `ui/src/components/tabs/CryptographicInspectorTab.tsx`
+  - `ui/src/components/tabs/HashChainLedgerTab.tsx`
+  - `ui/src/App.tsx`
+- **Acceptance Criteria**:
+  - [x] Tab 1 (Onboarding): CSID status banner, 1-click ZATCA sandbox preset, 3-step action workflow (Compliance CSID, Compliance Check, Production CSID), and strict secret masking.
+  - [x] Tab 2 (Invoice Builder): 1-click test scenario presets (B2B, B2C, Zero-Rated, Exempt, Credit Note), dynamic line items, and live financial summary calculating with `MidpointRounding.AwayFromZero`.
+  - [x] Tab 3 (Cryptographic Inspector): Live 2D QR matrix, interactive client-side binary TLV Tags 1–9 decoder, formatted UBL 2.1 XML viewer with copy & download, and SHA-256 hash continuity card.
+  - [x] Tab 4 (Ledger & Outbox): Visual hash chain timeline with block continuity badges, live outbox queue table, 3-second auto-refresh polling, and manual batch dispatch trigger.
+  - [x] Compiles to `src/ZatcaBridge.Api/wwwroot` with 0 TypeScript/ESLint warnings.

@@ -26,6 +26,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 
+// CORS for local development with Vite dev server (http://localhost:5173)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PlaygroundDevCors", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 // Clean Architecture Application & Infrastructure
 builder.Services.AddZatcaApplication();
 builder.Services.AddZatcaInfrastructure(
@@ -39,6 +50,9 @@ builder.Services.AddZatcaInfrastructure(
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors("PlaygroundDevCors");
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 // Ensure DB schema is created
 using (var scope = app.Services.CreateScope())
@@ -50,6 +64,8 @@ using (var scope = app.Services.CreateScope())
 // Map Minimal API Endpoints
 app.MapInvoiceEndpoints();
 app.MapOnboardingEndpoints();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
