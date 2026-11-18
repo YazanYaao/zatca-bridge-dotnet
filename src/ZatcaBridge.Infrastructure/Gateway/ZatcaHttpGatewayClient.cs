@@ -101,6 +101,7 @@ public class ZatcaHttpGatewayClient : IZatcaGatewayClient
         {
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
+            Console.WriteLine($"[ZATCA RAW RESPONSE] Status: {response.StatusCode}, Content: {contentString}");
 
             if (response.IsSuccessStatusCode)
             {

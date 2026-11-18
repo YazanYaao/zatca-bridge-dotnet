@@ -115,11 +115,8 @@ public class UblXmlGenerator : IZatcaXmlGenerator
         // AccountingSupplierParty
         root.Add(BuildSupplierParty(invoice.Seller));
 
-        // AccountingCustomerParty (if present)
-        if (invoice.Buyer is not null)
-        {
-            root.Add(BuildCustomerParty(invoice.Buyer));
-        }
+        // AccountingCustomerParty (Mandatory in UBL 2.1 XSD schema; emit anonymous Party for B2C if buyer is absent)
+        root.Add(BuildCustomerParty(invoice.Buyer));
 
         // Delivery / ActualDeliveryDate (KSA-5 - mandatory for Tax Invoices / B2B)
         if (invoice.TransactionType == InvoiceTransactionType.B2B)
@@ -178,8 +175,15 @@ public class UblXmlGenerator : IZatcaXmlGenerator
         return new XElement(NsCac + "AccountingSupplierParty", party);
     }
 
-    private static XElement BuildCustomerParty(Party buyer)
+    private static XElement BuildCustomerParty(Party? buyer)
     {
+        if (buyer is null)
+        {
+            return new XElement(NsCac + "AccountingCustomerParty",
+                new XElement(NsCac + "Party")
+            );
+        }
+
         var partyElements = new XElement(NsCac + "Party");
 
         if (!string.IsNullOrWhiteSpace(buyer.Crn))

@@ -58,7 +58,9 @@ public sealed record OnboardingStatusResponse(
     string? Environment = null,
     string? RequestId = null,
     DateTimeOffset? CreatedAt = null,
-    string? Message = null
+    string? Message = null,
+    string? VatNumber = null,
+    string? OrganizationName = null
 );
 
 /// <summary>
@@ -254,12 +256,17 @@ public static class OnboardingEndpoints
                 ));
             }
 
+            var vatNumber = ZatcaBridge.Application.Common.Security.CertificateMetadataExtractor.ExtractVatNumber(active.CertificatePem);
+            var orgName = ZatcaBridge.Application.Common.Security.CertificateMetadataExtractor.ExtractOrganizationName(active.CertificatePem);
+
             return Results.Ok(new OnboardingStatusResponse(
                 IsActive: active.IsActive,
                 Id: active.Id,
                 Environment: active.Environment.ToString(),
                 RequestId: active.RequestId,
-                CreatedAt: active.CreatedAt
+                CreatedAt: active.CreatedAt,
+                VatNumber: vatNumber,
+                OrganizationName: orgName
             ));
         })
         .WithName("GetOnboardingStatus")

@@ -21,11 +21,17 @@ public sealed record TaxCategory
         return new(TaxCategoryCode.Exempt, 0.00m, exemptionReasonCode, exemptionReason);
     }
 
-    public TaxCategory(TaxCategoryCode code, decimal rate, string? exemptionReasonCode = null, string? exemptionReason = null)
+    public TaxCategory(TaxCategoryCode code, decimal rate = 0.15m, string? exemptionReasonCode = null, string? exemptionReason = null)
     {
         if (rate < 0m)
         {
             throw new ArgumentOutOfRangeException(nameof(rate), "Tax rate cannot be negative.");
+        }
+
+        // KSA Standard Rate default is 15% (0.15m)
+        if (code == TaxCategoryCode.Standard && rate == 0m)
+        {
+            rate = 0.15m;
         }
 
         Code = code;

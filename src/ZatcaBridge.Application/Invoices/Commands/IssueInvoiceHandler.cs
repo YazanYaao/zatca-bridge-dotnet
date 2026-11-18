@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ZatcaBridge.Application.Common.Interfaces;
+using ZatcaBridge.Application.Common.Security;
 using ZatcaBridge.Application.Models;
 using ZatcaBridge.Domain.Cryptography;
 using ZatcaBridge.Domain.Entities;
@@ -80,7 +81,33 @@ public class IssueInvoiceHandler
                 pih = latestRecord.InvoiceHash;
             }
 
-            // 3. Construct Domain Aggregate
+            // 3. Fetch active CSID to check for certificate VAT alignment
+            var activeCsid = _csidRepository != null
+                ? await _csidRepository.GetActiveAsync(cancellationToken)
+                : null;
+
+            // Align Seller VAT with active CSID certificate if available to guarantee certificate-permissions compliance
+            var effectiveSeller = command.Seller;
+            if (activeCsid != null && !string.IsNullOrWhiteSpace(activeCsid.CertificatePem))
+            {
+                var certVat = CertificateMetadataExtractor.ExtractVatNumber(activeCsid.CertificatePem);
+                if (!string.IsNullOrWhiteSpace(certVat) && effectiveSeller.VatNumber != certVat)
+                {
+                    effectiveSeller = new Party(
+                        effectiveSeller.RegistrationName,
+                        certVat,
+                        effectiveSeller.StreetName,
+                        effectiveSeller.BuildingNumber,
+                        effectiveSeller.PostalCode,
+                        effectiveSeller.City,
+                        effectiveSeller.District,
+                        effectiveSeller.CountryCode,
+                        effectiveSeller.Crn
+                    );
+                }
+            }
+
+            // 4. Construct Domain Aggregate
             var invoice = new Invoice(
                 invoiceId,
                 invoiceUuid,
@@ -89,7 +116,7 @@ public class IssueInvoiceHandler
                 command.IssueTime,
                 command.InvoiceType,
                 command.TransactionType,
-                command.Seller,
+                effectiveSeller,
                 command.Buyer,
                 lineItems,
                 command.AllowanceTotal,
@@ -100,14 +127,10 @@ public class IssueInvoiceHandler
                 previousInvoiceHash: pih
             );
 
-            // 4. Determine Dual-Mode (Signed XAdES-BES vs Unsigned Fallback)
+            // 5. Determine Dual-Mode (Signed XAdES-BES vs Unsigned Fallback)
             string ublXml;
             string qrCodeBase64;
             string invoiceHash;
-
-            var activeCsid = _csidRepository != null
-                ? await _csidRepository.GetActiveAsync(cancellationToken)
-                : null;
 
             if (activeCsid != null && _xadesXmlSigner != null)
             {

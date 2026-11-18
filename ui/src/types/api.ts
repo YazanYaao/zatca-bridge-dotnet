@@ -149,6 +149,8 @@ export interface OnboardingStatusResponse {
   requestId?: string | null;
   createdAt?: string | null;
   message?: string | null;
+  vatNumber?: string | null;
+  organizationName?: string | null;
 }
 
 export interface RequestComplianceCsidApiRequest {

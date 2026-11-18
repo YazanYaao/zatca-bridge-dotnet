@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Plus, 
   Trash2, 
@@ -61,6 +61,22 @@ export const InvoiceBuilderTab: React.FC<InvoiceBuilderTabProps> = ({ onInvoiceC
   const [seller, setSeller] = useState<PartyDto>(DEFAULT_SELLER);
   const [buyer, setBuyer] = useState<PartyDto | null>(DEFAULT_BUYER);
   const [hasBuyer, setHasBuyer] = useState(true);
+
+  // Status query to align seller VAT with active onboarding CSID certificate
+  const { data: status } = useQuery({
+    queryKey: ['onboardingStatus'],
+    queryFn: api.getOnboardingStatus,
+  });
+
+  useEffect(() => {
+    if (status?.isActive && status?.vatNumber) {
+      setSeller((prev) => ({
+        ...prev,
+        vatRegistrationNumber: status.vatNumber || prev.vatRegistrationNumber,
+        name: status.organizationName || prev.name,
+      }));
+    }
+  }, [status?.isActive, status?.vatNumber, status?.organizationName]);
 
   const [lineItems, setLineItems] = useState<InvoiceLineItemDto[]>([
     {

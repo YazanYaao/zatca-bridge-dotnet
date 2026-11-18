@@ -8,6 +8,9 @@
 *.db-shm
 *.db-wal
 
+# Scratch files
+scratch/
+
 # dotenv files
 .env
 

@@ -159,7 +159,7 @@ public class XadesXmlSignerTests
         var signatureBytes = Convert.FromBase64String(result.DigitalSignatureBase64);
         Assert.True(signatureBytes.Length > 0);
 
-        // Verify digital signature against public key
+        // Verify digital signature against public key over invoice hash bytes (per ZATCA SDK)
         var verifier = SignerUtilities.GetSigner("SHA256WITHECDSA");
         verifier.Init(forSigning: false, _testCertificate.GetPublicKey());
         verifier.BlockUpdate(rawHash, 0, rawHash.Length);
@@ -179,13 +179,14 @@ public class XadesXmlSignerTests
         Assert.Equal(4, tags[3].TagNumber);
         Assert.Equal(5, tags[4].TagNumber);
 
-        // Tag 6: SHA-256 Invoice Hash
+        // Tag 6: SHA-256 Invoice Hash (UTF-8 bytes of Base64 string, length = 44)
         Assert.Equal(6, tags[5].TagNumber);
-        Assert.True(tags[5].Value.SequenceEqual(rawHash) || System.Text.Encoding.UTF8.GetString(tags[5].Value) == result.InvoiceHashBase64);
+        Assert.Equal(44, tags[5].Value.Length);
+        Assert.Equal(result.InvoiceHashBase64, System.Text.Encoding.UTF8.GetString(tags[5].Value));
 
-        // Tag 7: ECDSA Digital Signature
+        // Tag 7: ECDSA Digital Signature (UTF-8 bytes of Base64 DER string)
         Assert.Equal(7, tags[6].TagNumber);
-        Assert.True(tags[6].Value.SequenceEqual(signatureBytes));
+        Assert.Equal(result.DigitalSignatureBase64, System.Text.Encoding.UTF8.GetString(tags[6].Value));
 
         // Tag 8: ECDSA Public Key
         Assert.Equal(8, tags[7].TagNumber);
@@ -203,8 +204,8 @@ public class XadesXmlSignerTests
         XNamespace nsExt = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
         XNamespace nsCac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
         XNamespace nsCbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
-        XNamespace nsDs = "http://www.w3.org/2000/09/xmldsig#";
         XNamespace nsXades = "http://uri.etsi.org/01903/v1.3.2#";
+        XNamespace nsDs = "http://www.w3.org/2000/09/xmldsig#";
 
         // Must have ext:UBLExtensions as first child
         var ublExtensions = xDoc.Root.Element(nsExt + "UBLExtensions");

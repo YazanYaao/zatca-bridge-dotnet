@@ -77,127 +77,59 @@ public class XadesXmlSigner : IXadesXmlSigner
         var invoiceHashBytes = SHA256.HashData(canonicalBytes);
         var invoiceHashBase64 = Convert.ToBase64String(invoiceHashBytes);
 
-        // 4. Sign Invoice Hash using ECDSA secp256k1 (SHA256WITHECDSA)
+        // 4. Extract Certificate Details & Public Key
+        var certBytes = certificate.GetEncoded();
+        var certBase64 = Convert.ToBase64String(certBytes);
+        // ZATCA requirement: CertDigest is the SHA-256 of the Base64-encoded certificate string, formatted as lowercase hex then base64 encoded
+        var certBase64Bytes = Encoding.UTF8.GetBytes(certBase64);
+        var certHashBytes = SHA256.HashData(certBase64Bytes);
+        var certHashHex = Convert.ToHexString(certHashBytes).ToLowerInvariant();
+        var certDigestBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(certHashHex));
+
+        using var x509 = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadCertificate(certBytes);
+        var issuerName = x509.Issuer;
+
+        // 5. Pass 2: Enveloped XAdES-BES SignedProperties Construction
+        // ZATCA REQUIREMENT: No 'Z' suffix on signing time (YYYY-MM-DDTHH:mm:ss)
+        var signingTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+
+        // ZATCA REQUIREMENT: SignedProperties digest must be computed from the exact template
+        // with 36-space child indentation and xmlns:ds declared on each ds: element,
+        // using Hex-then-Base64 encoding (SHA-256 -> lowercase hex -> UTF-8 -> Base64 = 88 chars).
+        var spHashingTemplate = BuildSignedPropertiesForHashing(
+            signingTime,
+            certDigestBase64,
+            issuerName,
+            certificate.SerialNumber.ToString()
+        );
+
+        var spHashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(spHashingTemplate));
+        var spHashHex = Convert.ToHexString(spHashBytes).ToLowerInvariant();
+        var signedPropertiesHashBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(spHashHex));
+
+        // 6. Sign invoice hash using ECDSA secp256k1 (SHA256WITHECDSA)
+        // ZATCA REQUIREMENT: Sign the invoice hash bytes directly (SHA256WITHECDSA will internally SHA-256 them)
         var signer = SignerUtilities.GetSigner("SHA256WITHECDSA");
         signer.Init(forSigning: true, privateKey);
         signer.BlockUpdate(invoiceHashBytes, 0, invoiceHashBytes.Length);
         var digitalSignatureBytes = signer.GenerateSignature();
         var digitalSignatureBase64 = Convert.ToBase64String(digitalSignatureBytes);
 
-        // 5. Extract Certificate Details & Public Key for Tags 8 & 9
-        var certBytes = certificate.GetEncoded();
-        var certBase64 = Convert.ToBase64String(certBytes);
-        var certHashBytes = SHA256.HashData(certBytes);
-        var certHashBase64 = Convert.ToBase64String(certHashBytes);
-
+        // 7. Extract Public Key & CA Signature for Phase 2 QR Code with all 9 TLV Tags
         var publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(certificate.GetPublicKey());
         var publicKeyBytes = publicKeyInfo.GetDerEncoded();
         var certSignatureBytes = certificate.GetSignature();
 
-        // 6. Encode Phase 2 QR Code with all 9 TLV Tags
         var qrData = ZatcaQrCodeData.FromInvoice(
             invoice,
-            invoiceHash: invoiceHashBytes,
-            digitalSignature: digitalSignatureBytes,
+            invoiceHashBase64: invoiceHashBase64,
+            digitalSignatureBase64: digitalSignatureBase64,
             publicKey: publicKeyBytes,
             certificateSignature: certSignatureBytes
         );
         var qrCodeBase64 = TlvEncoder.EncodeToBase64(qrData);
 
-        // 7. Pass 2: Enveloped XAdES-BES XML Construction
-        var signingTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
-
-        var signedProperties = new XElement(NsXades + "SignedProperties",
-            new XAttribute("Id", "xadesSignedProperties"),
-            new XElement(NsXades + "SignedSignatureProperties",
-                new XElement(NsXades + "SigningTime", signingTime),
-                new XElement(NsXades + "SigningCertificate",
-                    new XElement(NsXades + "Cert",
-                        new XElement(NsXades + "CertDigest",
-                            new XElement(NsDs + "DigestMethod", new XAttribute("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")),
-                            new XElement(NsDs + "DigestValue", certHashBase64)
-                        ),
-                        new XElement(NsXades + "IssuerSerial",
-                            new XElement(NsDs + "X509IssuerName", certificate.IssuerDN.ToString()),
-                            new XElement(NsDs + "X509SerialNumber", certificate.SerialNumber.ToString())
-                        )
-                    )
-                )
-            )
-        );
-
-        var signedPropertiesBytes = CanonicalizeElement(signedProperties);
-        var signedPropertiesHashBase64 = Convert.ToBase64String(SHA256.HashData(signedPropertiesBytes));
-
-        var dsSignature = new XElement(NsDs + "Signature",
-            new XAttribute(XNamespace.Xmlns + "ds", NsDs.NamespaceName),
-            new XAttribute("Id", "signature"),
-            new XElement(NsDs + "SignedInfo",
-                new XElement(NsDs + "CanonicalizationMethod", new XAttribute("Algorithm", "http://www.w3.org/2006/12/xml-c14n11")),
-                new XElement(NsDs + "SignatureMethod", new XAttribute("Algorithm", "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256")),
-                new XElement(NsDs + "Reference",
-                    new XAttribute("Id", "invoiceSignedData"),
-                    new XAttribute("URI", ""),
-                    new XElement(NsDs + "Transforms",
-                        new XElement(NsDs + "Transform",
-                            new XAttribute("Algorithm", "http://www.w3.org/TR/1999/REC-xpath-19991116"),
-                            new XElement(NsDs + "XPath", "not(//ancestor-or-self::ext:UBLExtensions)")
-                        ),
-                        new XElement(NsDs + "Transform",
-                            new XAttribute("Algorithm", "http://www.w3.org/TR/1999/REC-xpath-19991116"),
-                            new XElement(NsDs + "XPath", "not(//ancestor-or-self::cac:Signature)")
-                        ),
-                        new XElement(NsDs + "Transform",
-                            new XAttribute("Algorithm", "http://www.w3.org/TR/1999/REC-xpath-19991116"),
-                            new XElement(NsDs + "XPath", "not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])")
-                        ),
-                        new XElement(NsDs + "Transform",
-                            new XAttribute("Algorithm", "http://www.w3.org/2006/12/xml-c14n11")
-                        )
-                    ),
-                    new XElement(NsDs + "DigestMethod", new XAttribute("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")),
-                    new XElement(NsDs + "DigestValue", invoiceHashBase64)
-                ),
-                new XElement(NsDs + "Reference",
-                    new XAttribute("Type", "http://www.w3.org/2000/09/xmldsig#SignatureProperties"),
-                    new XAttribute("URI", "#xadesSignedProperties"),
-                    new XElement(NsDs + "DigestMethod", new XAttribute("Algorithm", "http://www.w3.org/2001/04/xmlenc#sha256")),
-                    new XElement(NsDs + "DigestValue", signedPropertiesHashBase64)
-                )
-            ),
-            new XElement(NsDs + "SignatureValue", digitalSignatureBase64),
-            new XElement(NsDs + "KeyInfo",
-                new XElement(NsDs + "X509Data",
-                    new XElement(NsDs + "X509Certificate", certBase64)
-                )
-            ),
-            new XElement(NsDs + "Object",
-                new XElement(NsXades + "QualifyingProperties",
-                    new XAttribute(XNamespace.Xmlns + "xades", NsXades.NamespaceName),
-                    new XAttribute("Target", "signature"),
-                    signedProperties
-                )
-            )
-        );
-
-        var ublExtensions = new XElement(NsExt + "UBLExtensions",
-            new XElement(NsExt + "UBLExtension",
-                new XElement(NsExt + "ExtensionURI", "urn:oasis:names:specification:ubl:dsig:enveloped:xades"),
-                new XElement(NsExt + "ExtensionContent",
-                    new XElement(NsSig + "UBLDocumentSignatures",
-                        new XAttribute(XNamespace.Xmlns + "sig", NsSig.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "sac", NsSac.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "sbc", NsSbc.NamespaceName),
-                        new XElement(NsSac + "SignatureInformation",
-                            new XElement(NsCbc + "ID", "urn:oasis:names:specification:ubl:signature:1"),
-                            new XElement(NsSbc + "ReferencedSignatureID", "urn:oasis:names:specification:ubl:signature:Invoice"),
-                            dsSignature
-                        )
-                    )
-                )
-            )
-        );
-
+        // 8. Add cac:Signature & QR DocumentReference to xDoc
         var cacSignature = new XElement(NsCac + "Signature",
             new XElement(NsCbc + "ID", "urn:oasis:names:specification:ubl:signature:Invoice"),
             new XElement(NsCbc + "SignatureMethod", "urn:oasis:names:specification:ubl:dsig:enveloped:xades")
@@ -212,9 +144,6 @@ public class XadesXmlSigner : IXadesXmlSigner
                 )
             )
         );
-
-        // Inject ublExtensions as first child of <Invoice>
-        xDoc.Root!.AddFirst(ublExtensions);
 
         // Add QR Document Reference
         var pihRef = xDoc.Descendants(NsCac + "AdditionalDocumentReference")
@@ -233,12 +162,12 @@ public class XadesXmlSigner : IXadesXmlSigner
             }
             else
             {
-                xDoc.Root.Add(qrDocumentRef);
+                xDoc.Root!.Add(qrDocumentRef);
             }
         }
 
         // Add cac:Signature before AccountingSupplierParty
-        var supplierParty = xDoc.Root.Element(NsCac + "AccountingSupplierParty");
+        var supplierParty = xDoc.Root!.Element(NsCac + "AccountingSupplierParty");
         if (supplierParty != null)
         {
             supplierParty.AddBeforeSelf(cacSignature);
@@ -248,7 +177,28 @@ public class XadesXmlSigner : IXadesXmlSigner
             xDoc.Root.Add(cacSignature);
         }
 
-        var signedXml = ExportXDocumentToString(xDoc);
+        // Export document with cac:Signature and QR
+        var docXml = ExportXDocumentToString(xDoc);
+
+        // 9. Build byte-exact UBLExtensions envelope and insert into XML string (preserving whitespace)
+        var ublExtensions = BuildUblExtensions(
+            invoiceHashBase64,
+            signedPropertiesHashBase64,
+            digitalSignatureBase64,
+            certBase64,
+            signingTime,
+            certDigestBase64,
+            issuerName,
+            certificate.SerialNumber.ToString()
+        );
+
+        var invoiceMatch = System.Text.RegularExpressions.Regex.Match(docXml, @"<Invoice[^>]*>");
+        if (!invoiceMatch.Success)
+        {
+            throw new InvalidOperationException("Failed to find <Invoice> root in XML.");
+        }
+
+        var signedXml = docXml.Insert(invoiceMatch.Index + invoiceMatch.Length, ublExtensions);
         return new XadesSigningResult(signedXml, invoiceHashBase64, digitalSignatureBase64, qrCodeBase64);
     }
 
@@ -263,7 +213,7 @@ public class XadesXmlSigner : IXadesXmlSigner
         var transform = new XmlDsigC14NTransform(includeComments: false);
         transform.LoadInput(xmlDoc);
         using var stream = (MemoryStream)transform.GetOutput(typeof(Stream));
-        return stream.ToArray();
+        return NormalizeUnixLineEndings(stream.ToArray());
     }
 
     private static byte[] CanonicalizeElement(XElement element)
@@ -277,7 +227,13 @@ public class XadesXmlSigner : IXadesXmlSigner
         var transform = new XmlDsigC14NTransform(includeComments: false);
         transform.LoadInput(xmlDoc);
         using var stream = (MemoryStream)transform.GetOutput(typeof(Stream));
-        return stream.ToArray();
+        return NormalizeUnixLineEndings(stream.ToArray());
+    }
+
+    private static byte[] NormalizeUnixLineEndings(byte[] bytes)
+    {
+        var str = Encoding.UTF8.GetString(bytes).Replace("\r\n", "\n").Replace("\r", "\n");
+        return Encoding.UTF8.GetBytes(str);
     }
 
     private static string ExportXDocumentToString(XDocument doc)
@@ -365,5 +321,134 @@ public class XadesXmlSigner : IXadesXmlSigner
         {
             throw new ArgumentException("Failed to extract X.509 certificate from PEM string.", ex);
         }
+    }
+
+    /// <summary>
+    /// Builds the exact byte-for-byte SignedProperties XML snippet used for ZATCA digest hashing.
+    /// Notice: 36-space child indentation and xmlns:ds declared on each ds: child element.
+    /// </summary>
+    public static string BuildSignedPropertiesForHashing(
+        string signingTime,
+        string certDigestBase64,
+        string issuerName,
+        string serialNumber)
+    {
+        var sb = new StringBuilder();
+        sb.Append("<xades:SignedProperties xmlns:xades=\"http://uri.etsi.org/01903/v1.3.2#\" Id=\"xadesSignedProperties\">\n");
+        sb.Append("                                    <xades:SignedSignatureProperties>\n");
+        sb.Append($"                                        <xades:SigningTime>{signingTime}</xades:SigningTime>\n");
+        sb.Append("                                        <xades:SigningCertificate>\n");
+        sb.Append("                                            <xades:Cert>\n");
+        sb.Append("                                                <xades:CertDigest>\n");
+        sb.Append("                                                    <ds:DigestMethod xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\" Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"/>\n");
+        sb.Append($"                                                    <ds:DigestValue xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{certDigestBase64}</ds:DigestValue>\n");
+        sb.Append("                                                </xades:CertDigest>\n");
+        sb.Append("                                                <xades:IssuerSerial>\n");
+        sb.Append($"                                                    <ds:X509IssuerName xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{issuerName}</ds:X509IssuerName>\n");
+        sb.Append($"                                                    <ds:X509SerialNumber xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">{serialNumber}</ds:X509SerialNumber>\n");
+        sb.Append("                                                </xades:IssuerSerial>\n");
+        sb.Append("                                            </xades:Cert>\n");
+        sb.Append("                                        </xades:SigningCertificate>\n");
+        sb.Append("                                    </xades:SignedSignatureProperties>\n");
+        sb.Append("                                </xades:SignedProperties>");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the exact byte-for-byte SignedProperties XML snippet as embedded in the signed XML document.
+    /// Notice: 36-space child indentation, namespaces inherited from ancestors.
+    /// </summary>
+    public static string BuildSignedPropertiesForXml(
+        string signingTime,
+        string certDigestBase64,
+        string issuerName,
+        string serialNumber)
+    {
+        var sb = new StringBuilder();
+        sb.Append("<xades:SignedProperties Id=\"xadesSignedProperties\">\n");
+        sb.Append("                                    <xades:SignedSignatureProperties>\n");
+        sb.Append($"                                        <xades:SigningTime>{signingTime}</xades:SigningTime>\n");
+        sb.Append("                                        <xades:SigningCertificate>\n");
+        sb.Append("                                            <xades:Cert>\n");
+        sb.Append("                                                <xades:CertDigest>\n");
+        sb.Append("                                                    <ds:DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"/>\n");
+        sb.Append($"                                                    <ds:DigestValue>{certDigestBase64}</ds:DigestValue>\n");
+        sb.Append("                                                </xades:CertDigest>\n");
+        sb.Append("                                                <xades:IssuerSerial>\n");
+        sb.Append($"                                                    <ds:X509IssuerName>{issuerName}</ds:X509IssuerName>\n");
+        sb.Append($"                                                    <ds:X509SerialNumber>{serialNumber}</ds:X509SerialNumber>\n");
+        sb.Append("                                                </xades:IssuerSerial>\n");
+        sb.Append("                                            </xades:Cert>\n");
+        sb.Append("                                        </xades:SigningCertificate>\n");
+        sb.Append("                                    </xades:SignedSignatureProperties>\n");
+        sb.Append("                                </xades:SignedProperties>");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Builds the complete byte-exact UBLExtensions signature block for insertion into the document.
+    /// </summary>
+    public static string BuildUblExtensions(
+        string invoiceHashBase64,
+        string signedPropertiesHashBase64,
+        string digitalSignatureBase64,
+        string certBase64,
+        string signingTime,
+        string certDigestBase64,
+        string issuerName,
+        string serialNumber)
+    {
+        var spXml = BuildSignedPropertiesForXml(signingTime, certDigestBase64, issuerName, serialNumber);
+        return
+$@"<ext:UBLExtensions>
+    <ext:UBLExtension>
+        <ext:ExtensionURI>urn:oasis:names:specification:ubl:dsig:enveloped:xades</ext:ExtensionURI>
+        <ext:ExtensionContent>
+            <sig:UBLDocumentSignatures xmlns:sig=""urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2"" xmlns:sac=""urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2"" xmlns:sbc=""urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2"">
+                <sac:SignatureInformation> 
+                    <cbc:ID>urn:oasis:names:specification:ubl:signature:1</cbc:ID>
+                    <sbc:ReferencedSignatureID>urn:oasis:names:specification:ubl:signature:Invoice</sbc:ReferencedSignatureID>
+                    <ds:Signature xmlns:ds=""http://www.w3.org/2000/09/xmldsig#"" Id=""signature"">
+                        <ds:SignedInfo>
+                            <ds:CanonicalizationMethod Algorithm=""http://www.w3.org/2006/12/xml-c14n11""/>
+                            <ds:SignatureMethod Algorithm=""http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256""/>
+                            <ds:Reference Id=""invoiceSignedData"" URI="""">
+                                <ds:Transforms>
+                                    <ds:Transform Algorithm=""http://www.w3.org/TR/1999/REC-xpath-19991116"">
+                                        <ds:XPath>not(//ancestor-or-self::ext:UBLExtensions)</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm=""http://www.w3.org/TR/1999/REC-xpath-19991116"">
+                                        <ds:XPath>not(//ancestor-or-self::cac:Signature)</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm=""http://www.w3.org/TR/1999/REC-xpath-19991116"">
+                                        <ds:XPath>not(//ancestor-or-self::cac:AdditionalDocumentReference[cbc:ID='QR'])</ds:XPath>
+                                    </ds:Transform>
+                                    <ds:Transform Algorithm=""http://www.w3.org/2006/12/xml-c14n11""/>
+                                </ds:Transforms>
+                                <ds:DigestMethod Algorithm=""http://www.w3.org/2001/04/xmlenc#sha256""/>
+                                <ds:DigestValue>{invoiceHashBase64}</ds:DigestValue>
+                            </ds:Reference>
+                            <ds:Reference Type=""http://www.w3.org/2000/09/xmldsig#SignatureProperties"" URI=""#xadesSignedProperties"">
+                                <ds:DigestMethod Algorithm=""http://www.w3.org/2001/04/xmlenc#sha256""/>
+                                <ds:DigestValue>{signedPropertiesHashBase64}</ds:DigestValue>
+                            </ds:Reference>
+                        </ds:SignedInfo>
+                        <ds:SignatureValue>{digitalSignatureBase64}</ds:SignatureValue>
+                        <ds:KeyInfo>
+                            <ds:X509Data>
+                                <ds:X509Certificate>{certBase64}</ds:X509Certificate>
+                            </ds:X509Data>
+                        </ds:KeyInfo>
+                        <ds:Object>
+                            <xades:QualifyingProperties xmlns:xades=""http://uri.etsi.org/01903/v1.3.2#"" Target=""signature"">
+                                {spXml}
+                            </xades:QualifyingProperties>
+                        </ds:Object>
+                    </ds:Signature>
+                </sac:SignatureInformation>
+            </sig:UBLDocumentSignatures>
+        </ext:ExtensionContent>
+    </ext:UBLExtension>
+</ext:UBLExtensions>".Replace("\r\n", "\n").Replace("\r", "\n");
     }
 }

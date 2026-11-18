@@ -203,12 +203,12 @@ public class DualModeIssuanceTests
         var qrTags = TlvEncoder.Decode(result.QrCodeBase64);
         Assert.Equal(9, qrTags.Count); // Tags 1 to 9 all present
 
-        // Tag 6 is raw SHA-256 canonical invoice hash
+        // Tag 6 is UTF-8 bytes of 44-character Base64 canonical invoice hash (per ZATCA SDK)
         Assert.Equal(6, qrTags[5].TagNumber);
-        Assert.Equal(32, qrTags[5].Value.Length);
+        Assert.Equal(44, qrTags[5].Value.Length);
 
         // Result InvoiceHash must match the canonical hash
-        var expectedHash = Convert.ToBase64String(qrTags[5].Value);
+        var expectedHash = System.Text.Encoding.UTF8.GetString(qrTags[5].Value);
         Assert.Equal(expectedHash, result.InvoiceHash);
 
         // Outbox and chain record must store the canonical hash and signed XML

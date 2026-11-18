@@ -54,11 +54,12 @@ public class TlvEncoderTests
         // Arrange
         const string seller = "Bobs Burgers";
         const string vatNumber = "310122393500003";
-        var timestamp = new DateTimeOffset(2022, 4, 25, 15, 30, 0, TimeSpan.Zero);
+        // ZATCA Tag 3: direct IssueDate+IssueTime string (no Z, no UTC conversion)
+        const string timestampString = "2022-04-25T15:30:00";
         const decimal totalWithVat = 115.00m;
         const decimal vatTotal = 15.00m;
 
-        var qrData = new ZatcaQrCodeData(seller, vatNumber, timestamp, totalWithVat, vatTotal);
+        var qrData = new ZatcaQrCodeData(seller, vatNumber, timestampString, totalWithVat, vatTotal);
 
         // Calculate expected bytes manually
         var expectedList = new List<byte>();
@@ -73,7 +74,7 @@ public class TlvEncoderTests
 
         AppendTag(1, seller);
         AppendTag(2, vatNumber);
-        AppendTag(3, "2022-04-25T15:30:00Z");
+        AppendTag(3, timestampString);
         AppendTag(4, "115.00");
         AppendTag(5, "15.00");
 
@@ -89,12 +90,14 @@ public class TlvEncoderTests
     [Fact]
     public void Encode_Phase2CryptographicTags6To9_IncludesTagsWithCorrectPayloads()
     {
-        // Arrange
-        var invoiceHash = new byte[32];
-        Array.Fill(invoiceHash, (byte)0xAA);
+        // Arrange — ZATCA Tags 6/7 store UTF-8 bytes of Base64 strings; Tags 8/9 store raw bytes
+        var invoiceHashBytes = new byte[32];
+        Array.Fill(invoiceHashBytes, (byte)0xAA);
+        var invoiceHashBase64 = Convert.ToBase64String(invoiceHashBytes);
 
-        var signature = new byte[64];
-        Array.Fill(signature, (byte)0xBB);
+        var signatureBytes = new byte[64];
+        Array.Fill(signatureBytes, (byte)0xBB);
+        var signatureBase64 = Convert.ToBase64String(signatureBytes);
 
         var publicKey = new byte[65];
         Array.Fill(publicKey, (byte)0xCC);
@@ -105,11 +108,11 @@ public class TlvEncoderTests
         var qrData = new ZatcaQrCodeData(
             sellerName: "Acme Corp",
             vatRegistrationNumber: "310123456700003",
-            timestamp: new DateTimeOffset(2026, 11, 16, 12, 0, 0, TimeSpan.Zero),
+            timestampString: "2026-11-16T12:00:00",
             invoiceTotal: 230.00m,
             vatTotal: 30.00m,
-            invoiceHash: invoiceHash,
-            digitalSignature: signature,
+            invoiceHashBase64: invoiceHashBase64,
+            digitalSignatureBase64: signatureBase64,
             publicKey: publicKey,
             certificateSignature: stampSignature
         );
@@ -123,18 +126,24 @@ public class TlvEncoderTests
         Assert.Equal(9, tags.Count);
         Assert.Equal(9, decodedTags.Count);
 
+        // Tag 6: UTF-8 bytes of the Base64 hash string
         var tag6 = decodedTags.FirstOrDefault(t => t.TagNumber == 6);
         Assert.NotNull(tag6);
-        Assert.Equal(invoiceHash, tag6.Value);
+        var tag6Str = Encoding.UTF8.GetString(tag6.Value);
+        Assert.Equal(invoiceHashBase64, tag6Str);
 
+        // Tag 7: UTF-8 bytes of the Base64 signature string
         var tag7 = decodedTags.FirstOrDefault(t => t.TagNumber == 7);
         Assert.NotNull(tag7);
-        Assert.Equal(signature, tag7.Value);
+        var tag7Str = Encoding.UTF8.GetString(tag7.Value);
+        Assert.Equal(signatureBase64, tag7Str);
 
+        // Tag 8: raw bytes
         var tag8 = decodedTags.FirstOrDefault(t => t.TagNumber == 8);
         Assert.NotNull(tag8);
         Assert.Equal(publicKey, tag8.Value);
 
+        // Tag 9: raw bytes
         var tag9 = decodedTags.FirstOrDefault(t => t.TagNumber == 9);
         Assert.NotNull(tag9);
         Assert.Equal(stampSignature, tag9.Value);
@@ -147,7 +156,7 @@ public class TlvEncoderTests
         var qrData = new ZatcaQrCodeData(
             "Seller",
             "310123456700003",
-            new DateTimeOffset(2026, 11, 16, 12, 0, 0, TimeSpan.Zero),
+            "2026-11-16T12:00:00",
             invoiceTotal: 100m,
             vatTotal: 15.5m
         );
@@ -217,7 +226,7 @@ public class TlvEncoderTests
             new ZatcaQrCodeData(
                 invalidSeller!,
                 "310123456700003",
-                DateTimeOffset.UtcNow,
+                "2026-01-01T00:00:00",
                 115.00m,
                 15.00m
             ));
@@ -233,7 +242,7 @@ public class TlvEncoderTests
             new ZatcaQrCodeData(
                 "Valid Seller",
                 invalidVat,
-                DateTimeOffset.UtcNow,
+                "2026-01-01T00:00:00",
                 115.00m,
                 15.00m
             ));
@@ -246,7 +255,7 @@ public class TlvEncoderTests
             new ZatcaQrCodeData(
                 "Valid Seller",
                 "310123456700003",
-                DateTimeOffset.UtcNow,
+                "2026-01-01T00:00:00",
                 -1.00m,
                 15.00m
             ));
@@ -255,7 +264,7 @@ public class TlvEncoderTests
             new ZatcaQrCodeData(
                 "Valid Seller",
                 "310123456700003",
-                DateTimeOffset.UtcNow,
+                "2026-01-01T00:00:00",
                 115.00m,
                 -1.00m
             ));

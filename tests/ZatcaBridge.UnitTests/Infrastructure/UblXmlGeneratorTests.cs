@@ -108,9 +108,20 @@ public class UblXmlGeneratorTests
         var profileId = doc.Root.Element(NsCbc + "ProfileID")?.Value;
         Assert.Equal("reporting:1.0", profileId);
 
-        // B2C without buyer should not have AccountingCustomerParty or should have an empty/anonymous party
+        // B2C without buyer MUST still emit AccountingCustomerParty to satisfy UBL 2.1 XSD schema
         var customerParty = doc.Root.Element(NsCac + "AccountingCustomerParty");
-        Assert.Null(customerParty);
+        Assert.NotNull(customerParty);
+        Assert.NotNull(customerParty.Element(NsCac + "Party"));
+
+        // Verify ordering: AccountingSupplierParty -> AccountingCustomerParty -> TaxTotal
+        var elements = doc.Root.Elements().Select(e => e.Name.LocalName).ToList();
+        var supplierIdx = elements.IndexOf("AccountingSupplierParty");
+        var customerIdx = elements.IndexOf("AccountingCustomerParty");
+        var taxTotalIdx = elements.IndexOf("TaxTotal");
+
+        Assert.True(supplierIdx >= 0, "AccountingSupplierParty must be present");
+        Assert.True(customerIdx > supplierIdx, "AccountingCustomerParty must follow AccountingSupplierParty");
+        Assert.True(taxTotalIdx > customerIdx, "TaxTotal must follow AccountingCustomerParty");
     }
 
     [Fact]
