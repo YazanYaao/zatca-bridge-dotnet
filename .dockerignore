@@ -1,0 +1,26 @@
+# Git and IDE
+.git
+.gitignore
+.gitattributes
+.vs
+.vscode
+.idea
+
+# Build outputs and dependencies
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+
+# SQLite databases and temp logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+scratch/
+coverage/
+
+# Tests & Agent artifacts
+tests/
+.agents/
+skills-lock.json

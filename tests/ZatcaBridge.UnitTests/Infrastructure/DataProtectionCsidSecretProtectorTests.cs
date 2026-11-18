@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.DependencyInjection;
+using ZatcaBridge.Application.Common.Interfaces;
+using ZatcaBridge.Infrastructure.Extensions;
 using ZatcaBridge.Infrastructure.Security;
 
 namespace ZatcaBridge.UnitTests.Infrastructure;
@@ -65,5 +68,32 @@ public class DataProtectionCsidSecretProtectorTests
         // Act & Assert
         Assert.Equal(input, _protector.Protect(input));
         Assert.Equal(input, _protector.Unprotect(input));
+    }
+
+    [Fact]
+    public void AddZatcaInfrastructure_WithKeysPathEnvVar_ConfiguresFileKeyPersistence()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "zatca_keys_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Environment.SetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH", tempDir);
+            var services = new ServiceCollection();
+            services.AddZatcaInfrastructure("Data Source=:memory:");
+            var sp = services.BuildServiceProvider();
+            var protector = sp.GetRequiredService<ICsidSecretProtector>();
+
+            var encrypted = protector.Protect("test-secret");
+            Assert.NotNull(encrypted);
+            Assert.StartsWith("enc:v1:", encrypted);
+            Assert.True(Directory.Exists(tempDir));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH", null);
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
     }
 }

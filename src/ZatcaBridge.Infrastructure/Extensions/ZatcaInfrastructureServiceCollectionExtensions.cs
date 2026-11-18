@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ZatcaBridge.Application.Common.Interfaces;
@@ -34,7 +36,18 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         });
 
         // 2. Repositories (EfInvoiceOutboxRepository implements both IInvoiceOutboxRepository and IHashChainRepository)
-        services.AddDataProtection();
+        var dataProtectionBuilder = services.AddDataProtection();
+        var keysPath = Environment.GetEnvironmentVariable("DATA_PROTECTION_KEYS_PATH");
+        if (!string.IsNullOrWhiteSpace(keysPath))
+        {
+            var dir = new DirectoryInfo(keysPath);
+            if (!dir.Exists)
+            {
+                dir.Create();
+            }
+            dataProtectionBuilder.PersistKeysToFileSystem(dir);
+        }
+
         services.AddSingleton<ICsidSecretProtector, DataProtectionCsidSecretProtector>();
         services.AddScoped<EfInvoiceOutboxRepository>();
         services.AddScoped<IInvoiceOutboxRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());

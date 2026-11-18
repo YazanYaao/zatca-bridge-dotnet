@@ -1,0 +1,26 @@
+services:
+  zatca-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zatca-bridge-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/zatca_bridge.db
+      - DATA_PROTECTION_KEYS_PATH=/app/keys
+      - ZatcaGateway__BaseUrl=https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/
+      - ZatcaGateway__AcceptVersion=V2
+      - ZatcaGateway__AcceptLanguage=en
+    volumes:
+      - zatca_data:/app/data
+      - zatca_keys:/app/keys
+
+volumes:
+  zatca_data:
+    name: zatca_bridge_data
+  zatca_keys:
+    name: zatca_bridge_keys
