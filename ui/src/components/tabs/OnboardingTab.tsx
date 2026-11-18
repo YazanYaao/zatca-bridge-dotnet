@@ -87,38 +87,38 @@ export const OnboardingTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Live CSID Banner */}
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                 status?.isActive
-                  ? 'bg-zatca-900/50 text-zatca-400 border border-zatca-700/50'
-                  : 'bg-amber-900/40 text-amber-400 border border-amber-700/40'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
               }`}
             >
               {isStatusLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
               ) : status?.isActive ? (
-                <ShieldCheck className="w-7 h-7" />
+                <ShieldCheck className="w-7 h-7 text-emerald-700" />
               ) : (
-                <AlertTriangle className="w-7 h-7" />
+                <AlertTriangle className="w-7 h-7 text-amber-600" />
               )}
             </div>
             <div>
               <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-bold text-white">Cryptographic Stamp Identifier (CSID)</h2>
+                <h2 className="text-lg font-bold text-slate-900">Cryptographic Stamp Identifier (CSID)</h2>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                     status?.isActive
-                      ? 'bg-zatca-950 text-zatca-300 border border-zatca-700'
-                      : 'bg-amber-950 text-amber-300 border border-amber-700'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200'
                   }`}
                 >
                   {status?.isActive ? 'ACTIVE & ONBOARDED' : 'NOT ONBOARDED (UNSIGNED MODE)'}
                 </span>
               </div>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="text-sm text-slate-500 mt-1">
                 {status?.isActive
                   ? `Environment: ${status.environment || 'Simulation'} • Registered: ${status.createdAt ? new Date(status.createdAt).toLocaleString() : 'N/A'}`
                   : 'Operating in backward-compatible unsigned mode. Request a CSID to enable XAdES-BES digital signatures and 9-tag QR codes.'}
@@ -128,29 +128,29 @@ export const OnboardingTab: React.FC = () => {
 
           <button
             onClick={handleApplyPreset}
-            className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition border border-slate-600"
+            className="flex items-center space-x-2 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition border border-slate-200 shadow-sm"
           >
-            <Sparkles className="w-4 h-4 text-zatca-400" />
+            <Sparkles className="w-4 h-4 text-emerald-700" />
             <span>Load Sandbox Presets</span>
           </button>
         </div>
 
         {/* Security Notice */}
-        <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center space-x-2 text-xs text-slate-400">
-          <Lock className="w-3.5 h-3.5 text-zatca-400 flex-shrink-0" />
+        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center space-x-2 text-xs text-slate-500">
+          <Lock className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
           <span>
-            Strict Enterprise Security: Private keys (<code className="text-slate-300">secp256k1</code>) and CSID Basic Auth credentials are saved exclusively in the server vault/database and never exposed to the client.
+            Strict Enterprise Security: Private keys (<code className="text-slate-800 font-semibold font-mono">secp256k1</code>) and CSID credentials are vaulted securely in the database and never transmitted to the browser.
           </span>
         </div>
       </div>
 
       {/* Error alert */}
       {errorMessage && (
-        <div className="bg-rose-950/60 border border-rose-800 text-rose-300 rounded-xl p-4 text-sm flex items-start space-x-3">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400 mt-0.5" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-4 text-xs flex items-start space-x-3 shadow-sm">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-600 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-semibold text-rose-200">ZATCA Onboarding Error</p>
-            <p>{errorMessage}</p>
+            <p className="font-semibold text-rose-900">ZATCA Onboarding Error</p>
+            <p className="text-rose-700">{errorMessage}</p>
           </div>
         </div>
       )}
@@ -158,61 +158,61 @@ export const OnboardingTab: React.FC = () => {
       {/* 3-Step Guided Workflow */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Step 1: Compliance CSID */}
-        <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="w-7 h-7 rounded-lg bg-zatca-950 border border-zatca-800 text-zatca-400 text-xs font-bold flex items-center justify-center">
+              <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono">
                 1
               </span>
               <span className="text-xs font-mono text-slate-400">POST /compliance</span>
             </div>
-            <h3 className="font-bold text-white text-base flex items-center space-x-2">
-              <Key className="w-4 h-4 text-zatca-400" />
+            <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+              <Key className="w-4 h-4 text-emerald-700" />
               <span>Request Compliance CSID</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1 mb-4">
+            <p className="text-xs text-slate-500 mt-1 mb-4">
               Generates an ECDSA keypair and ZATCA SAN CSR, and exchanges OTP for a compliance certificate.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">One-Time Password (OTP)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">One-Time Password (OTP)</label>
                 <input
                   type="text"
                   value={formData.otp}
                   onChange={(e) => setFormData({ ...formData, otp: e.target.value })}
                   placeholder="e.g. 123345"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none focus:border-zatca-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Common Name (CN)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Common Name (CN)</label>
                 <input
                   type="text"
                   value={formData.commonName}
                   onChange={(e) => setFormData({ ...formData, commonName: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-zatca-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">VAT Registration Number (UID)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">VAT Registration Number (UID)</label>
                 <input
                   type="text"
                   value={formData.vatRegistrationNumber || ''}
                   onChange={(e) => setFormData({ ...formData, vatRegistrationNumber: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-zatca-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Device Serial (SN)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Device Serial (SN)</label>
                 <input
                   type="text"
                   value={formData.serialNumber || ''}
                   onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-zatca-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition"
                 />
               </div>
             </div>
@@ -221,7 +221,7 @@ export const OnboardingTab: React.FC = () => {
           <button
             onClick={() => complianceMutation.mutate(formData)}
             disabled={complianceMutation.isPending || !formData.otp}
-            className="mt-6 w-full py-2.5 bg-zatca-600 hover:bg-zatca-500 disabled:bg-slate-700 text-white font-medium text-sm rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-zatca-900/30"
+            className="mt-6 w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm"
           >
             {complianceMutation.isPending ? (
               <>
@@ -238,42 +238,42 @@ export const OnboardingTab: React.FC = () => {
         </div>
 
         {/* Step 2: Compliance Check */}
-        <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="w-7 h-7 rounded-lg bg-zatca-950 border border-zatca-800 text-zatca-400 text-xs font-bold flex items-center justify-center">
+              <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono">
                 2
               </span>
               <span className="text-xs font-mono text-slate-400">POST /compliance/invoices</span>
             </div>
-            <h3 className="font-bold text-white text-base flex items-center space-x-2">
-              <Send className="w-4 h-4 text-zatca-400" />
+            <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+              <Send className="w-4 h-4 text-emerald-700" />
               <span>Run Compliance Invoice Check</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1 mb-4">
+            <p className="text-xs text-slate-500 mt-1 mb-4">
               Signs a test B2B Tax Invoice with the active CSID and submits it to ZATCA's compliance validator.
             </p>
 
             {complianceResult ? (
-              <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-3 text-xs space-y-2">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-300">Validation Status:</span>
                   <span
                     className={`px-2 py-0.5 rounded font-bold ${
                       complianceResult.reportingStatus === 'REPORTED' || complianceResult.clearanceStatus === 'CLEARED'
-                        ? 'bg-zatca-900 text-zatca-300'
-                        : 'bg-amber-900 text-amber-300'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        : 'bg-amber-950 text-amber-300 border border-amber-800'
                     }`}
                   >
                     {complianceResult.reportingStatus || complianceResult.clearanceStatus || 'EVALUATED'}
                   </span>
                 </div>
-                <div className="text-slate-400 text-[11px] font-mono break-all max-h-36 overflow-y-auto">
+                <div className="text-slate-300 text-[11px] font-mono break-all max-h-36 overflow-y-auto">
                   {JSON.stringify(complianceResult, null, 2)}
                 </div>
               </div>
             ) : (
-              <div className="border border-dashed border-slate-700 rounded-xl p-6 text-center text-xs text-slate-500">
+              <div className="border border-dashed border-slate-200 bg-slate-50/50 rounded-xl p-6 text-center text-xs text-slate-500">
                 Execute a compliance test to verify digital signature and invoice syntax with ZATCA Sandbox.
               </div>
             )}
@@ -282,7 +282,7 @@ export const OnboardingTab: React.FC = () => {
           <button
             onClick={() => checkMutation.mutate({})}
             disabled={checkMutation.isPending || !status?.isActive}
-            className="mt-6 w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-medium text-sm rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-blue-900/30"
+            className="mt-6 w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm"
           >
             {checkMutation.isPending ? (
               <>
@@ -299,34 +299,34 @@ export const OnboardingTab: React.FC = () => {
         </div>
 
         {/* Step 3: Production CSID Promotion */}
-        <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between shadow-lg">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="w-7 h-7 rounded-lg bg-zatca-950 border border-zatca-800 text-zatca-400 text-xs font-bold flex items-center justify-center">
+              <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono">
                 3
               </span>
               <span className="text-xs font-mono text-slate-400">POST /production/csids</span>
             </div>
-            <h3 className="font-bold text-white text-base flex items-center space-x-2">
-              <Award className="w-4 h-4 text-zatca-400" />
+            <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+              <Award className="w-4 h-4 text-emerald-700" />
               <span>Promote to Production CSID</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1 mb-4">
+            <p className="text-xs text-slate-500 mt-1 mb-4">
               Finalizes onboarding by exchanging the compliance CSID for an active Production CSID.
             </p>
 
             {productionResult ? (
-              <div className="bg-slate-900/80 border border-zatca-800 rounded-xl p-3 text-xs space-y-2">
-                <div className="flex items-center space-x-2 text-zatca-400 font-semibold">
+              <div className="bg-slate-900 border border-emerald-800/80 rounded-xl p-3 text-xs space-y-2">
+                <div className="flex items-center space-x-2 text-emerald-400 font-semibold">
                   <CheckCircle className="w-4 h-4" />
                   <span>Production CSID Granted!</span>
                 </div>
-                <div className="text-slate-400 text-[11px] font-mono break-all max-h-36 overflow-y-auto">
+                <div className="text-slate-300 text-[11px] font-mono break-all max-h-36 overflow-y-auto">
                   {JSON.stringify(productionResult, null, 2)}
                 </div>
               </div>
             ) : (
-              <div className="border border-dashed border-slate-700 rounded-xl p-6 text-center text-xs text-slate-500">
+              <div className="border border-dashed border-slate-200 bg-slate-50/50 rounded-xl p-6 text-center text-xs text-slate-500">
                 After passing compliance validation, promote the certificate to activate full clearance & reporting.
               </div>
             )}
@@ -335,7 +335,7 @@ export const OnboardingTab: React.FC = () => {
           <button
             onClick={() => productionMutation.mutate(status?.requestId || undefined)}
             disabled={productionMutation.isPending || !status?.isActive}
-            className="mt-6 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white font-medium text-sm rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-900/30"
+            className="mt-6 w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-sm"
           >
             {productionMutation.isPending ? (
               <>
