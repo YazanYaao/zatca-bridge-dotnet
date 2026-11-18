@@ -14,11 +14,13 @@ import {
   ShieldCheck, 
   ChevronDown, 
   ChevronRight,
-  Info
+  Info,
+  Printer
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { decodeTlvBase64, DecodedTlvTag } from '../../utils/tlvDecoder';
 import { formatSar } from '../../utils/calculations';
+import { InvoicePdfTemplate } from '../InvoicePdfTemplate';
 
 interface CryptographicInspectorTabProps {
   selectedInvoiceId?: string;
@@ -32,6 +34,7 @@ export const CryptographicInspectorTab: React.FC<CryptographicInspectorTabProps>
   const [copiedXml, setCopiedXml] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
   const [copiedQr, setCopiedQr] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [expandedTags, setExpandedTags] = useState<Record<number, boolean>>({
     1: true,
     2: true,
@@ -145,6 +148,17 @@ export const CryptographicInspectorTab: React.FC<CryptographicInspectorTabProps>
                 </option>
               ))}
             </select>
+
+            {invoice && (
+              <button
+                onClick={() => setIsPdfModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition shadow whitespace-nowrap"
+                title="معاينة وطباعة الفاتورة A4 / Print & Export PDF"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>طباعة / PDF</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -316,6 +330,15 @@ export const CryptographicInspectorTab: React.FC<CryptographicInspectorTabProps>
 
               <div className="flex items-center space-x-2">
                 <button
+                  onClick={() => setIsPdfModalOpen(true)}
+                  className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition shadow"
+                  title="معاينة وطباعة الفاتورة الضريبية / Export PDF"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>طباعة / تصدير PDF</span>
+                </button>
+
+                <button
                   onClick={() => copyToClipboard(invoice?.xmlPayload || '', 'xml')}
                   className="flex items-center space-x-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition"
                 >
@@ -349,6 +372,14 @@ export const CryptographicInspectorTab: React.FC<CryptographicInspectorTabProps>
           </div>
         </div>
       </div>
+
+      {/* A4 Tax Invoice Print & PDF Modal */}
+      {isPdfModalOpen && invoice && (
+        <InvoicePdfTemplate
+          invoice={invoice}
+          onClose={() => setIsPdfModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
