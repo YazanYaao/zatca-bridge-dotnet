@@ -16,6 +16,7 @@ using ZatcaBridge.Application.Common.Interfaces;
 using ZatcaBridge.Domain.Cryptography;
 using ZatcaBridge.Domain.Entities;
 using ZatcaBridge.Domain.ValueObjects;
+using ZatcaBridge.Infrastructure.Xml;
 
 namespace ZatcaBridge.Infrastructure.Cryptography;
 
@@ -63,7 +64,7 @@ public class XadesXmlSigner : IXadesXmlSigner
 
         // 2. Generate Base UBL XML and strip excluded nodes for Pass 1 Canonicalization
         var baseXml = _xmlGenerator.GenerateXml(invoice, qrCodeBase64: null);
-        var xDoc = XDocument.Parse(baseXml);
+        var xDoc = SafeXmlParser.ParseXDocument(baseXml);
 
         // Strip excluded nodes from pre-signed document for hashing
         xDoc.Root?.Element(NsExt + "UBLExtensions")?.Remove();
@@ -204,7 +205,7 @@ public class XadesXmlSigner : IXadesXmlSigner
 
     private static byte[] CanonicalizeXml(XDocument doc)
     {
-        var xmlDoc = new XmlDocument { PreserveWhitespace = true };
+        var xmlDoc = SafeXmlParser.CreateSafeXmlDocument(preserveWhitespace: true);
         using (var reader = doc.CreateReader())
         {
             xmlDoc.Load(reader);
@@ -218,7 +219,7 @@ public class XadesXmlSigner : IXadesXmlSigner
 
     private static byte[] CanonicalizeElement(XElement element)
     {
-        var xmlDoc = new XmlDocument { PreserveWhitespace = true };
+        var xmlDoc = SafeXmlParser.CreateSafeXmlDocument(preserveWhitespace: true);
         using (var reader = element.CreateReader())
         {
             xmlDoc.Load(reader);

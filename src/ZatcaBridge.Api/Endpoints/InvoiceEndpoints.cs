@@ -17,6 +17,7 @@ using ZatcaBridge.Domain.Enums;
 using ZatcaBridge.Domain.ValueObjects;
 using ZatcaBridge.Infrastructure.Persistence;
 using ZatcaBridge.Infrastructure.Persistence.Entities;
+using ZatcaBridge.Infrastructure.Xml;
 
 namespace ZatcaBridge.Api.Endpoints;
 
@@ -489,7 +490,7 @@ public static class InvoiceEndpoints
         if (string.IsNullOrWhiteSpace(xml)) return null;
         try
         {
-            var doc = System.Xml.Linq.XDocument.Parse(xml);
+            var doc = SafeXmlParser.ParseXDocument(xml);
             var nsCac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
             var nsCbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
 

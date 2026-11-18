@@ -25,6 +25,7 @@ public class ZatcaDbContext : DbContext
             builder.HasKey(e => e.Id);
             builder.HasIndex(e => e.Uuid).IsUnique();
             builder.HasIndex(e => e.InvoiceNumber);
+            builder.HasIndex(e => e.InvoiceCounterValue).IsUnique();
 
             builder.Property(e => e.InvoiceNumber).HasMaxLength(128).IsRequired();
             builder.Property(e => e.SellerName).HasMaxLength(256).IsRequired();

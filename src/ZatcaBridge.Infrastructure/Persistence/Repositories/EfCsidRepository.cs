@@ -15,10 +15,12 @@ namespace ZatcaBridge.Infrastructure.Persistence.Repositories;
 public class EfCsidRepository : ICsidRepository
 {
     private readonly ZatcaDbContext _context;
+    private readonly ICsidSecretProtector? _secretProtector;
 
-    public EfCsidRepository(ZatcaDbContext context)
+    public EfCsidRepository(ZatcaDbContext context, ICsidSecretProtector? secretProtector = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _secretProtector = secretProtector;
     }
 
     /// <inheritdoc />
@@ -67,11 +69,11 @@ public class EfCsidRepository : ICsidRepository
         }
         else
         {
-            existing.PrivateKeyPem = credential.PrivateKeyPem;
+            existing.PrivateKeyPem = (_secretProtector != null ? _secretProtector.Protect(credential.PrivateKeyPem) : credential.PrivateKeyPem) ?? string.Empty;
             existing.PublicKeyPem = credential.PublicKeyPem;
             existing.CsrPem = credential.CsrPem;
             existing.CertificatePem = credential.CertificatePem;
-            existing.Secret = credential.Secret;
+            existing.Secret = _secretProtector != null ? _secretProtector.Protect(credential.Secret) : credential.Secret;
             existing.RequestId = credential.RequestId;
             existing.Environment = (int)credential.Environment;
             existing.IsActive = credential.IsActive;
@@ -103,32 +105,42 @@ public class EfCsidRepository : ICsidRepository
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    private static CsidCredential MapToDomain(CsidCredentialEntity e) =>
-        new(
+    private CsidCredential MapToDomain(CsidCredentialEntity e)
+    {
+        var privateKeyPem = (_secretProtector != null ? _secretProtector.Unprotect(e.PrivateKeyPem) : e.PrivateKeyPem) ?? string.Empty;
+        var secret = _secretProtector != null ? _secretProtector.Unprotect(e.Secret) : e.Secret;
+
+        return new(
             id: e.Id,
-            privateKeyPem: e.PrivateKeyPem,
+            privateKeyPem: privateKeyPem,
             publicKeyPem: e.PublicKeyPem,
             csrPem: e.CsrPem,
             certificatePem: e.CertificatePem,
-            secret: e.Secret,
+            secret: secret,
             requestId: e.RequestId,
             environment: (CsidEnvironment)e.Environment,
             isActive: e.IsActive,
             createdAt: e.CreatedAt
         );
+    }
 
-    private static CsidCredentialEntity MapToEntity(CsidCredential d) =>
-        new()
+    private CsidCredentialEntity MapToEntity(CsidCredential d)
+    {
+        var privateKeyPem = (_secretProtector != null ? _secretProtector.Protect(d.PrivateKeyPem) : d.PrivateKeyPem) ?? string.Empty;
+        var secret = _secretProtector != null ? _secretProtector.Protect(d.Secret) : d.Secret;
+
+        return new()
         {
             Id = d.Id,
-            PrivateKeyPem = d.PrivateKeyPem,
+            PrivateKeyPem = privateKeyPem,
             PublicKeyPem = d.PublicKeyPem,
             CsrPem = d.CsrPem,
             CertificatePem = d.CertificatePem,
-            Secret = d.Secret,
+            Secret = secret,
             RequestId = d.RequestId,
             Environment = (int)d.Environment,
             IsActive = d.IsActive,
             CreatedAt = d.CreatedAt
         };
+    }
 }

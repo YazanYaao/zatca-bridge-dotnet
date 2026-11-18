@@ -98,11 +98,32 @@ public class EfInvoiceOutboxRepository : IInvoiceOutboxRepository, IHashChainRep
             CreatedAt = outboxMessage.CreatedAt
         };
 
-        _context.Invoices.Add(invoiceEntity);
-        _context.HashChainRecords.Add(chainEntity);
-        _context.OutboxMessages.Add(outboxEntity);
+        if (_context.Database.IsRelational())
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+            try
+            {
+                _context.Invoices.Add(invoiceEntity);
+                _context.HashChainRecords.Add(chainEntity);
+                _context.OutboxMessages.Add(outboxEntity);
 
-        await _context.SaveChangesAsync(cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await tx.RollbackAsync(cancellationToken);
+                throw;
+            }
+        }
+        else
+        {
+            _context.Invoices.Add(invoiceEntity);
+            _context.HashChainRecords.Add(chainEntity);
+            _context.OutboxMessages.Add(outboxEntity);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
     }
 
     public async Task<IReadOnlyList<OutboxMessage>> GetPendingMessagesAsync(int batchSize = 10, CancellationToken cancellationToken = default)

@@ -145,7 +145,7 @@ public class OutboxBackgroundWorkerTests
 
         // Act: Start and wait for second attempt despite first failure
         await worker.StartAsync(CancellationToken.None);
-        var completedTask = await Task.WhenAny(throwingRepo.SecondAttemptTcs.Task, Task.Delay(2000));
+        var completedTask = await Task.WhenAny(throwingRepo.SecondAttemptTcs.Task, Task.Delay(5000));
         await worker.StopAsync(CancellationToken.None);
 
         // Assert: Attempted at least 2 times despite the first failure

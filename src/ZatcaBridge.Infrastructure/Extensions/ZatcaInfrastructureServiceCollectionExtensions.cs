@@ -6,6 +6,7 @@ using ZatcaBridge.Infrastructure.Cryptography;
 using ZatcaBridge.Infrastructure.Gateway;
 using ZatcaBridge.Infrastructure.Persistence;
 using ZatcaBridge.Infrastructure.Persistence.Repositories;
+using ZatcaBridge.Infrastructure.Security;
 using ZatcaBridge.Infrastructure.Xml;
 
 namespace ZatcaBridge.Infrastructure.Extensions;
@@ -33,6 +34,8 @@ public static class ZatcaInfrastructureServiceCollectionExtensions
         });
 
         // 2. Repositories (EfInvoiceOutboxRepository implements both IInvoiceOutboxRepository and IHashChainRepository)
+        services.AddDataProtection();
+        services.AddSingleton<ICsidSecretProtector, DataProtectionCsidSecretProtector>();
         services.AddScoped<EfInvoiceOutboxRepository>();
         services.AddScoped<IInvoiceOutboxRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
         services.AddScoped<IHashChainRepository>(sp => sp.GetRequiredService<EfInvoiceOutboxRepository>());
