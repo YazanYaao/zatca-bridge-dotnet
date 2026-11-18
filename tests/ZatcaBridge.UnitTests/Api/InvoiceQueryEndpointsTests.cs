@@ -151,6 +151,7 @@ public class InvoiceQueryEndpointsTests : IClassFixture<WebApplicationFactory<Pr
         Assert.Equal(issued.InvoiceId.ToString(), json.GetProperty("id").GetString());
         Assert.False(string.IsNullOrWhiteSpace(json.GetProperty("xmlPayload").GetString()));
         Assert.False(string.IsNullOrWhiteSpace(json.GetProperty("qrCodeBase64").GetString()));
+        Assert.Equal(issued.QrCodeBase64, json.GetProperty("qrCodeBase64").GetString());
         Assert.Equal(issued.InvoiceHash, json.GetProperty("invoiceHash").GetString());
     }
 

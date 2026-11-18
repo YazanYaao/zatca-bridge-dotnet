@@ -487,13 +487,32 @@ public static class InvoiceEndpoints
     private static string? ExtractQrCode(string xml)
     {
         if (string.IsNullOrWhiteSpace(xml)) return null;
-        const string startTag = "<cbc:EmbeddedDocumentBinaryObject mimeCode=\"text/plain\">";
-        const string endTag = "</cbc:EmbeddedDocumentBinaryObject>";
-        int start = xml.IndexOf(startTag, StringComparison.Ordinal);
-        if (start == -1) return null;
-        start += startTag.Length;
-        int end = xml.IndexOf(endTag, start, StringComparison.Ordinal);
-        if (end == -1) return null;
-        return xml.Substring(start, end - start).Trim();
+        try
+        {
+            var doc = System.Xml.Linq.XDocument.Parse(xml);
+            var nsCac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+            var nsCbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+
+            var qrRef = doc.Descendants(System.Xml.Linq.XName.Get("AdditionalDocumentReference", nsCac))
+                .FirstOrDefault(r => r.Element(System.Xml.Linq.XName.Get("ID", nsCbc))?.Value == "QR");
+
+            return qrRef?.Element(System.Xml.Linq.XName.Get("Attachment", nsCac))
+                ?.Element(System.Xml.Linq.XName.Get("EmbeddedDocumentBinaryObject", nsCbc))
+                ?.Value.Trim();
+        }
+        catch
+        {
+            // Fallback string matching if XML parse fails
+            int qrIdx = xml.IndexOf("<cbc:ID>QR</cbc:ID>", StringComparison.Ordinal);
+            if (qrIdx == -1) return null;
+            const string startTag = "<cbc:EmbeddedDocumentBinaryObject mimeCode=\"text/plain\">";
+            const string endTag = "</cbc:EmbeddedDocumentBinaryObject>";
+            int start = xml.IndexOf(startTag, qrIdx, StringComparison.Ordinal);
+            if (start == -1) return null;
+            start += startTag.Length;
+            int end = xml.IndexOf(endTag, start, StringComparison.Ordinal);
+            if (end == -1) return null;
+            return xml.Substring(start, end - start).Trim();
+        }
     }
 }
